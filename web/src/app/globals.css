@@ -55,24 +55,24 @@
   --card-foreground: oklch(0.145 0 0);
   --popover: oklch(1 0 0);
   --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
+  --primary: oklch(0.541 0.247 293);
   --primary-foreground: oklch(0.985 0 0);
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --accent: oklch(0.969 0.016 293.8);
+  --accent-foreground: oklch(0.432 0.232 292.8);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: oklch(0.702 0.183 293.5);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  --radius: 0.625rem;
+  --radius: 0.75rem;
   --sidebar: oklch(0.985 0 0);
   --sidebar-foreground: oklch(0.145 0 0);
   --sidebar-primary: oklch(0.205 0 0);
@@ -127,4 +127,15 @@
   html {
     @apply font-sans;
   }
+}
+
+/* The dark hero bands: a violet glow over a faint grid. */
+.hero-backdrop {
+  background-color: oklch(0.16 0.03 285);
+  background-image:
+    radial-gradient(900px 420px at 50% -10%, oklch(0.541 0.247 293 / 0.45), transparent 70%),
+    radial-gradient(600px 300px at 90% 110%, oklch(0.6 0.2 250 / 0.25), transparent 70%),
+    linear-gradient(oklch(1 0 0 / 0.04) 1px, transparent 1px),
+    linear-gradient(90deg, oklch(1 0 0 / 0.04) 1px, transparent 1px);
+  background-size: auto, auto, 40px 40px, 40px 40px;
 }

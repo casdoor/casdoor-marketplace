@@ -38,9 +38,13 @@ func StaticFilter(ctx *context.Context) {
 	}
 
 	relPath := strings.Trim(urlPath, "/")
-	if relPath == "" {
-		http.Redirect(ctx.ResponseWriter, ctx.Request, "/integrations/", http.StatusFound)
+	// the catalog used to be at /integrations/; it is the home page now
+	if relPath == "integrations" {
+		http.Redirect(ctx.ResponseWriter, ctx.Request, "/", http.StatusMovedPermanently)
 		return
+	}
+	if relPath == "" {
+		relPath = "index.html"
 	}
 	if !filepath.IsLocal(relPath) {
 		serveNotFound(ctx)

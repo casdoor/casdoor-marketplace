@@ -25,6 +25,7 @@ export type Integration = {
   logo?: string;
   homepage?: string;
   categories: string[];
+  tags?: string[];
   screenshots?: string[];
   verified: boolean;
   requiresGlobalAdmin?: boolean;
@@ -60,6 +61,7 @@ export type Manifest = {
   logo?: string;
   homepage?: string;
   screenshots?: string[];
+  tags?: string[];
   categories: string[];
   variables?: Variable[];
 };
