@@ -8,7 +8,7 @@ export async function generateMetadata(): Promise<Metadata> {
   return {
     title: { absolute: "Casdoor Integrations: App SSO, Identity Providers and Themes" },
     description: `Single sign-on guides for ${names.slice(0, -1).join(", ")} and ${names.at(-1)}, ready-made identity providers such as Keycloak and authentik, and sign-in page themes for Casdoor.`,
-    alternates: { canonical: "/integrations" },
+    alternates: { canonical: "/integrations/" },
   };
 }
 

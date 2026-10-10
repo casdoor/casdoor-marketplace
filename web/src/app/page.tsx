@@ -1,23 +1,18 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { buttonVariants } from "@/components/ui/button";
 
-// marketplace.casdoor.com/ will become the developer console (sign in, upload, review); public pages live under /integrations.
+// The backend redirects / to /integrations/, so this page is only reached on a static host without that redirect.
+// CasWAF also takes build/index.html as the sign that the frontend has been built.
 export const metadata: Metadata = {
   robots: { index: false },
 };
 
 export default function Home() {
   return (
-    <div className="flex flex-col items-start gap-4">
-      <h1 className="text-3xl font-semibold tracking-tight">Casdoor Marketplace</h1>
-      <p className="max-w-xl text-muted-foreground">
-        Browse app integrations, provider templates, themes and actions, then install them from the Marketplace page
-        in your Casdoor admin console.
-      </p>
-      <Link href="/integrations" className={buttonVariants()}>
-        Browse integrations
+    <p>
+      <Link href="/integrations" className="underline underline-offset-4">
+        Browse Casdoor integrations
       </Link>
-    </div>
+    </p>
   );
 }

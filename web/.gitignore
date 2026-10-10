@@ -20,6 +20,10 @@
 # production
 /build
 
+# the casdoor-integrations build, fetched by scripts/fetch-integrations.mjs
+/public/data
+/.integrations
+
 # misc
 .DS_Store
 *.pem

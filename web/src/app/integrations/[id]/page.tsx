@@ -22,9 +22,8 @@ const othersHeading = {
 const freeTrialUrl = `https://admin.casdoor.com/signup?from=${encodeURIComponent("/instances/new?tier=basic&period=PostPaid")}`;
 const selfHostUrl = "https://casdoor.ai/docs/basic/try-with-docker";
 
-// Block on params instead of streaming behind <Suspense>: crawlers get the whole page in one response and unknown ids
-// get a real 404 status.
-export const instant = false;
+// The site is a static export: every integration is a page built from the index, nothing else exists.
+export const dynamicParams = false;
 
 export async function generateStaticParams() {
   const integrations = await getIntegrations();
@@ -44,7 +43,7 @@ export async function generateMetadata({ params }: PageProps<"/integrations/[id]
     (integration.type === "theme"
       ? `${integration.name.en}: a Sign-in Page Theme for Casdoor`
       : `${integration.name.en} ${typeLabels[integration.type]} | Casdoor`);
-  const url = `/integrations/${integration.id}`;
+  const url = `/integrations/${integration.id}/`;
   return {
     title: { absolute: title },
     description: integration.description.en,
@@ -76,7 +75,7 @@ export default async function IntegrationPage({ params }: PageProps<"/integratio
       description: integration.description.en,
       applicationCategory: "SecurityApplication",
       softwareVersion: integration.latest,
-      url: `${siteUrl}/integrations/${integration.id}`,
+      url: `${siteUrl}/integrations/${integration.id}/`,
       author: { "@type": "Organization", name: integration.author },
       offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
     },

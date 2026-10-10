@@ -1,0 +1,126 @@
+package routers
+
+import (
+	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
+
+	"github.com/beego/beego/context"
+)
+
+const webDir = "web/build"
+
+var contentTypes = map[string]string{
+	".html":  "text/html; charset=utf-8",
+	".css":   "text/css; charset=utf-8",
+	".js":    "text/javascript; charset=utf-8",
+	".json":  "application/json; charset=utf-8",
+	".xml":   "application/xml; charset=utf-8",
+	".txt":   "text/plain; charset=utf-8",
+	".svg":   "image/svg+xml",
+	".png":   "image/png",
+	".jpg":   "image/jpeg",
+	".jpeg":  "image/jpeg",
+	".webp":  "image/webp",
+	".ico":   "image/x-icon",
+	".woff2": "font/woff2",
+}
+
+// StaticFilter serves the static export of the Next.js frontend in web/build.
+func StaticFilter(ctx *context.Context) {
+	urlPath := ctx.Request.URL.Path
+	if strings.HasPrefix(urlPath, "/api/") {
+		return
+	}
+	if ctx.Request.Method != http.MethodGet && ctx.Request.Method != http.MethodHead {
+		return
+	}
+
+	relPath := strings.Trim(urlPath, "/")
+	if relPath == "" {
+		http.Redirect(ctx.ResponseWriter, ctx.Request, "/integrations/", http.StatusFound)
+		return
+	}
+	if !filepath.IsLocal(relPath) {
+		serveNotFound(ctx)
+		return
+	}
+
+	if path := filepath.Join(webDir, relPath); isFile(path) {
+		serveFile(ctx, path, http.StatusOK)
+		return
+	}
+	if path := getSegmentPath(relPath); path != "" && isFile(path) {
+		serveFile(ctx, path, http.StatusOK)
+		return
+	}
+
+	// pages are <path>/index.html (trailingSlash in web/next.config.ts)
+	path := filepath.Join(webDir, relPath, "index.html")
+	if !isFile(path) {
+		serveNotFound(ctx)
+		return
+	}
+	if !strings.HasSuffix(urlPath, "/") {
+		target := "/" + relPath + "/"
+		if ctx.Request.URL.RawQuery != "" {
+			target += "?" + ctx.Request.URL.RawQuery
+		}
+		http.Redirect(ctx.ResponseWriter, ctx.Request, target, http.StatusMovedPermanently)
+		return
+	}
+	serveFile(ctx, path, http.StatusOK)
+}
+
+// The router prefetches segments as <page>/__next.integrations.$d$id.__PAGE__.txt, while the export writes them to
+// <page>/__next.integrations/$d$id/__PAGE__.txt.
+func getSegmentPath(relPath string) string {
+	dir, name := filepath.Split(relPath)
+	if !strings.HasPrefix(name, "__next.") || !strings.HasSuffix(name, ".txt") {
+		return ""
+	}
+	parts := strings.Split(strings.TrimSuffix(name, ".txt"), ".")
+	if len(parts) < 3 {
+		return ""
+	}
+	segments := append([]string{parts[0] + "." + parts[1]}, parts[2:]...)
+	return filepath.Join(webDir, dir, filepath.Join(segments...)+".txt")
+}
+
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func serveNotFound(ctx *context.Context) {
+	path := filepath.Join(webDir, "404.html")
+	if !isFile(path) {
+		http.NotFound(ctx.ResponseWriter, ctx.Request)
+		return
+	}
+	serveFile(ctx, path, http.StatusNotFound)
+}
+
+func serveFile(ctx *context.Context, path string, status int) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	header := ctx.ResponseWriter.Header()
+	if contentType, ok := contentTypes[strings.ToLower(filepath.Ext(path))]; ok {
+		header.Set("Content-Type", contentType)
+	}
+	if strings.Contains(filepath.ToSlash(path), "/_next/static/") {
+		header.Set("Cache-Control", "public, max-age=31536000, immutable")
+	} else {
+		header.Set("Cache-Control", "no-cache")
+	}
+
+	ctx.ResponseWriter.WriteHeader(status)
+	if ctx.Request.Method != http.MethodHead {
+		_, _ = ctx.ResponseWriter.Write(data)
+	}
+}
