@@ -148,6 +148,11 @@ func isFile(path string) bool {
 	return err == nil && !info.IsDir()
 }
 
+func isDir(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && info.IsDir()
+}
+
 func isCompressible(contentType string) bool {
 	return strings.HasPrefix(contentType, "text/") || strings.HasPrefix(contentType, "application/json") ||
 		strings.HasPrefix(contentType, "application/xml") || strings.HasPrefix(contentType, "image/svg+xml") ||

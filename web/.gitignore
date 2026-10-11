@@ -19,6 +19,7 @@
 
 # production
 /build
+/.next-build
 
 # the casdoor-integrations build, fetched by scripts/fetch-integrations.mjs
 /public/data
