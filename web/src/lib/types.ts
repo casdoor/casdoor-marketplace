@@ -100,6 +100,8 @@ export type ThemeTemplate = {
   formCssMobile?: string;
   formSideHtml?: string;
   footerHtml?: string;
+  formBackgroundUrl?: string;
+  formBackgroundUrlMobile?: string;
 };
 
 export type GuideStep = {

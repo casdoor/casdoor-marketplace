@@ -49,7 +49,7 @@
 |---|---|---|
 | [App integrations](https://marketplace.casdoor.com/apps/) | Single sign-on for an app you run: the Casdoor application to create and the settings on the app's side, down to group and role mapping | Grafana, GitLab, Nextcloud, Vaultwarden, Argo CD |
 | [Identity providers](https://marketplace.casdoor.com/providers/) | Ready-made provider templates for signing in to Casdoor with another identity system | Keycloak, authentik, ZITADEL, Authelia, GitLab Self-Managed |
-| [Sign-in themes](https://marketplace.casdoor.com/themes/) | Login page designs that can be previewed and imported into an application | Material, Fluent, Cupertino, Aurora, Midnight |
+| [Sign-in themes](https://marketplace.casdoor.com/themes/) | Login page designs that can be previewed and imported into an application | Material, Aurora, Terminal, Pixel, Backdrop, Sketch |
 
 Actions (code that runs at sign-in, sign-up and token issuance) are planned.
 

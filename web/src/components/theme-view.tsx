@@ -27,6 +27,7 @@ export async function ThemeView({
     { label: m.settings.customCssMobile, value: yesNo(theme.formCssMobile) },
     ...(theme.formSideHtml ? [{ label: m.settings.sidePanelHtml, value: m.yes }] : []),
     ...(theme.footerHtml ? [{ label: m.settings.footerHtml, value: m.yes }] : []),
+    ...(theme.formBackgroundUrl ? [{ label: m.settings.backgroundUrl, value: m.yes }] : []),
   ];
 
   return (
