@@ -72,8 +72,8 @@ casdoor/casdoor-integrations          this repository                      Casdo
 
 | Path | Contents |
 |---|---|
-| `main.go`, `routers/`, `util/` | Go (Beego) backend: serves `web/build`, language redirects, and later the API under `/api/` (accounts, submissions, review, signing) |
-| `conf/app.conf` | Port (`httpport`, default 18300) |
+| `main.go`, `routers/`, `controllers/`, `object/`, `conf/`, `util/` | Go (Beego) backend: serves `web/build`, language redirects, the admin console's API under `/api/`, and puts the analytics set in the admin console into the pages |
+| `conf/app.conf` | Port (`httpport`, default 18300), MySQL (`dataSourceName`, `dbName`) and the Casdoor application of the admin console |
 | `web/` | Next.js (App Router) + TypeScript + Tailwind + shadcn/ui frontend, see [web/README.md](web/README.md) |
 
 ## Run locally
@@ -93,6 +93,22 @@ For frontend work with hot reload, run `npm run dev` in `web/`. To preview local
 cd web
 INTEGRATIONS_DIR=../../casdoor-integrations/dist npm run dev
 ```
+
+## Admin console
+
+`/admin/` is the admin console. People sign in with Casdoor, and admins of the Casdoor application's organization can change the site's settings, which are kept in MySQL:
+
+- **Analytics**: a Google Analytics measurement ID and a Baidu Tongji site code. The backend puts their scripts into every public page it serves. Nothing is preset, so a new deployment reports to no analytics until its admins set them.
+
+To turn it on, set in `conf/app.conf` (or as environment variables of the same names):
+
+| Item | Purpose |
+|---|---|
+| `dataSourceName`, `dbName` | MySQL, e.g. `root:123456@tcp(localhost:3306)/` and `casdoor_marketplace`. The tables are created on start |
+| `casdoorEndpoint`, `clientId`, `clientSecret` | The Casdoor application to sign in with. Add `https://<host>/api/callback` to its redirect URLs for every host the site is served at |
+| `casdoorOrganization` | Only users of this organization may sign in; its admins manage the site |
+
+Without `dataSourceName` the site still serves every page, only without the admin console and settings.
 
 ## Contributing
 

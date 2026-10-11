@@ -10,8 +10,10 @@ const nextConfig: NextConfig = {
     ? {
         async rewrites() {
           return [
+            // the backend (go run main.go) answers the API
+            { source: "/api/:path*", destination: "http://localhost:18300/api/:path*" },
             { source: "/", destination: "/en" },
-            { source: "/:path((?!en(?:/|$)|zh(?:/|$)).*)", destination: "/en/:path" },
+            { source: "/:path((?!en(?:/|$)|zh(?:/|$)|admin(?:/|$)|api(?:/|$)).*)", destination: "/en/:path" },
           ];
         },
       }

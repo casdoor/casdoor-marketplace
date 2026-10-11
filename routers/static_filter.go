@@ -9,6 +9,7 @@ import (
 	"strings"
 
 	"github.com/beego/beego/context"
+	"github.com/casdoor/casdoor-marketplace/object"
 )
 
 const webDir = "web/build"
@@ -124,6 +125,10 @@ func serveFile(ctx *context.Context, path string, status int) {
 		return
 	}
 
+	if strings.HasSuffix(path, ".html") && !strings.Contains(filepath.ToSlash(path), "/admin/") {
+		data = injectAnalytics(data)
+	}
+
 	header := ctx.ResponseWriter.Header()
 	if contentType, ok := contentTypes[strings.ToLower(filepath.Ext(path))]; ok {
 		header.Set("Content-Type", contentType)
@@ -148,6 +153,16 @@ func serveFile(ctx *context.Context, path string, status int) {
 	if ctx.Request.Method != http.MethodHead {
 		_, _ = ctx.ResponseWriter.Write(data)
 	}
+}
+
+// injectAnalytics puts the analytics set in the admin console into the <head> of a page. The build has none, so a
+// deployment only reports to the analytics its own admins set.
+func injectAnalytics(data []byte) []byte {
+	analytics := object.GetAnalyticsHtml()
+	if analytics == "" {
+		return data
+	}
+	return bytes.Replace(data, []byte("</head>"), []byte(analytics+"</head>"), 1)
 }
 
 func isCompressible(contentType string) bool {

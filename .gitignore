@@ -28,6 +28,9 @@ go.work.sum
 # env file
 .env
 
+# sessions of the admin console
+tmp/
+
 # Editor/IDE
 # .idea/
 # .vscode/
