@@ -10,8 +10,18 @@ import { GitHubIcon } from "@/components/site-header";
 import { ThemeView } from "@/components/theme-view";
 import { TypeIcon } from "@/components/type-icon";
 import { buttonVariants } from "@/components/ui/button";
+import {
+  formatMonth,
+  getMessages,
+  isLocale,
+  languageAlternates,
+  localePath,
+  translateCategory,
+  translateTag,
+  type Locale,
+} from "@/lib/i18n";
 import { getBundle, getIntegration, getIntegrations } from "@/lib/integrations";
-import { getCollection, links, siteUrl, typeLabels } from "@/lib/site";
+import { docsUrl, getCollection, links, siteUrl } from "@/lib/site";
 import { exampleValues, fillVariables } from "@/lib/variables";
 
 // The site is a static export: every integration is a page built from the index, nothing else exists.
@@ -22,58 +32,63 @@ export async function generateStaticParams() {
   return integrations.map((i) => ({ id: i.id }));
 }
 
-export async function generateMetadata({ params }: PageProps<"/integrations/[id]">): Promise<Metadata> {
-  const { id } = await params;
+export async function generateMetadata({ params }: PageProps<"/[lang]/integrations/[id]">): Promise<Metadata> {
+  const { lang, id } = await params;
   const integration = await getIntegration(id);
-  if (!integration) {
+  if (!integration || !isLocale(lang)) {
     return {};
   }
 
+  const m = getMessages(lang);
   const guide = (await getBundle(integration)).files["guide.json"];
+  const name = integration.name.en;
   const title =
     guide?.title ??
-    (integration.type === "theme"
-      ? `${integration.name.en}: a Sign-in Page Theme for Casdoor`
-      : `${integration.name.en} ${typeLabels[integration.type]} | Casdoor`);
-  const url = `/integrations/${integration.id}/`;
+    (integration.type === "theme" ? m.integration.themeTitle(name) : m.integration.title(name, m.typeLabels[integration.type]));
+  const description = integration.description.en;
+  const path = `/integrations/${integration.id}/`;
   return {
     title: { absolute: title },
-    description: integration.description.en,
-    alternates: { canonical: url },
-    openGraph: { title, description: integration.description.en, url },
+    description,
+    alternates: { canonical: localePath(lang, path), languages: languageAlternates(path) },
+    openGraph: { title, description, url: localePath(lang, path) },
   };
 }
 
-function formatMonth(month: string) {
-  return new Date(`${month}-01T00:00:00Z`).toLocaleDateString("en-US", { month: "long", year: "numeric", timeZone: "UTC" });
-}
-
-export default async function IntegrationPage({ params }: PageProps<"/integrations/[id]">) {
-  const { id } = await params;
+export default async function IntegrationPage({ params }: PageProps<"/[lang]/integrations/[id]">) {
+  const { lang, id } = (await params) as { lang: Locale; id: string };
   const integration = await getIntegration(id);
   if (!integration) {
     notFound();
   }
 
-  const { manifest, files } = await getBundle(integration);
+  const m = getMessages(lang);
+  const t = m.integration;
+  const bundle = await getBundle(integration);
+  const { manifest, files } = bundle;
   const guide = files["guide.json"];
   const application = files["application.json"];
   const provider = files["provider.json"];
   const theme = files["theme.json"];
   const values = exampleValues(manifest);
   const name = integration.name.en;
+  const description = integration.description.en;
+  const typeLabel = m.typeLabels[integration.type];
   const collection = getCollection(integration.type);
+  const collectionTitle = collection ? m.collections[collection.type].title : "";
+  const collectionHref = collection ? localePath(lang, `/${collection.slug}/`) : "";
   const sourceUrl = `${links.integrations}/tree/master/integrations/${integration.type}/${integration.id}`;
   const related = (await getIntegrations()).filter((i) => i.id !== integration.id && i.type === integration.type).slice(0, 3);
 
   const graph: object[] = [
     {
       "@type": "SoftwareApplication",
-      name: `${name} ${typeLabels[integration.type]} for Casdoor`,
-      description: integration.description.en,
+      name: t.structuredName(name, typeLabel),
+      description,
+      inLanguage: lang,
       applicationCategory: "SecurityApplication",
       softwareVersion: integration.latest,
-      url: `${siteUrl}/integrations/${integration.id}/`,
+      url: `${siteUrl}${localePath(lang, `/integrations/${integration.id}/`)}`,
       author: { "@type": "Organization", name: integration.author },
       offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
     },
@@ -91,21 +106,21 @@ export default async function IntegrationPage({ params }: PageProps<"/integratio
 
   const details = [
     {
-      label: "Type",
+      label: t.type,
       value: collection ? (
-        <Link href={`/${collection.slug}`} className="text-primary hover:underline">
-          {typeLabels[integration.type]}
+        <Link href={collectionHref} className="text-primary hover:underline">
+          {typeLabel}
         </Link>
       ) : (
-        typeLabels[integration.type]
+        typeLabel
       ),
     },
-    { label: "Category", value: integration.categories.join(", ") },
-    { label: "Version", value: manifest.version },
-    { label: "Casdoor", value: manifest.casdoorVersion },
-    ...(guide ? [{ label: "Checked", value: formatMonth(guide.checkedOn) }] : []),
-    { label: "Author", value: integration.author === "casdoor" ? "Casdoor team" : integration.author },
-    { label: "License", value: integration.license },
+    { label: t.category, value: integration.categories.map((c) => translateCategory(c, lang)).join(m.guide.sourcesSeparator) },
+    { label: t.version, value: manifest.version },
+    { label: t.casdoor, value: manifest.casdoorVersion },
+    ...(guide ? [{ label: t.checked, value: formatMonth(guide.checkedOn, lang) }] : []),
+    { label: t.author, value: integration.author === "casdoor" ? t.casdoorTeam : integration.author },
+    { label: t.license, value: integration.license },
   ];
 
   return (
@@ -118,14 +133,14 @@ export default async function IntegrationPage({ params }: PageProps<"/integratio
       <section className="border-b bg-gradient-to-b from-accent/70 via-accent/20 to-background">
         <div className="mx-auto flex max-w-7xl flex-col gap-6 px-4 pt-8 pb-10 sm:px-6">
           <nav className="flex flex-wrap items-center gap-1 text-sm text-muted-foreground">
-            <Link href="/" className="hover:text-foreground">
-              Marketplace
+            <Link href={localePath(lang, "/")} className="hover:text-foreground">
+              {m.header.badge}
             </Link>
             <ChevronRight className="size-4" />
             {collection && (
               <>
-                <Link href={`/${collection.slug}`} className="hover:text-foreground">
-                  {collection.title}
+                <Link href={collectionHref} className="hover:text-foreground">
+                  {collectionTitle}
                 </Link>
                 <ChevronRight className="size-4" />
               </>
@@ -140,31 +155,33 @@ export default async function IntegrationPage({ params }: PageProps<"/integratio
             <div className="flex min-w-0 flex-col gap-3">
               <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
                 <TypeIcon type={integration.type} className="size-4" />
-                {name} · {typeLabels[integration.type]}
+                {name}
+                {m.separator}
+                {typeLabel}
               </p>
               <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{guide?.headline ?? name}</h1>
-              <p className="max-w-3xl text-lg leading-8 text-muted-foreground">{guide?.summary ?? integration.description.en}</p>
+              <p className="max-w-3xl text-lg leading-8 text-muted-foreground">{guide?.summary ?? description}</p>
               <div className="flex flex-wrap items-center gap-2">
                 {integration.verified && (
                   <span className="flex items-center gap-1 rounded-full bg-primary/10 px-2.5 py-1 text-xs font-medium text-primary">
                     <BadgeCheck className="size-3.5" />
-                    Verified by Casdoor
+                    {t.verified}
                   </span>
                 )}
                 {(integration.tags ?? []).map((tag) => (
                   <span key={tag} className="rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
-                    {tag}
+                    {translateTag(tag, lang)}
                   </span>
                 ))}
               </div>
               <div className="mt-2 flex flex-wrap gap-3">
                 <a href="#setup" className={buttonVariants({ size: "lg" })}>
-                  {integration.type === "theme" ? "Apply this theme" : "Set it up"}
+                  {integration.type === "theme" ? t.applyTheme : t.setUp}
                   <ArrowRight />
                 </a>
                 <a href={sourceUrl} className={buttonVariants({ size: "lg", variant: "outline" })}>
                   <GitHubIcon className="size-4" />
-                  View source
+                  {t.viewSource}
                 </a>
               </div>
             </div>
@@ -175,18 +192,18 @@ export default async function IntegrationPage({ params }: PageProps<"/integratio
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_20rem]">
         <div className="flex min-w-0 flex-col gap-14">
           <div id="setup" className="scroll-mt-24">
-            {theme && <ThemeView integration={integration} manifest={manifest} theme={theme} />}
+            {theme && <ThemeView integration={integration} manifest={manifest} theme={theme} lang={lang} />}
             {guide && application && (
-              <GuideView name={name} steps={appSteps(name, application, guide)} guide={guide} values={values} />
+              <GuideView name={name} steps={appSteps(name, application, guide, lang)} guide={guide} values={values} lang={lang} />
             )}
             {guide && provider && (
-              <GuideView name={name} steps={providerSteps(name, provider, guide)} guide={guide} values={values} />
+              <GuideView name={name} steps={providerSteps(name, provider, guide, lang)} guide={guide} values={values} lang={lang} />
             )}
           </div>
 
           {guide?.faqs && guide.faqs.length > 0 && (
             <section id="faq" className="flex scroll-mt-24 flex-col gap-4">
-              <h2 className="text-2xl font-semibold tracking-tight">Frequently asked questions</h2>
+              <h2 className="text-2xl font-semibold tracking-tight">{t.faq}</h2>
               <div className="divide-y rounded-xl border bg-card">
                 {guide.faqs.map((f) => (
                   <details key={f.question} className="group px-5 py-4" open>
@@ -208,19 +225,16 @@ export default async function IntegrationPage({ params }: PageProps<"/integratio
           <div className="rounded-xl border bg-card p-5">
             <h2 className="flex items-center gap-2 font-semibold">
               <PackageOpen className="size-4 text-primary" />
-              Install
+              {t.install}
             </h2>
-            <p className="mt-2 text-sm leading-6 text-muted-foreground">
-              One-click install from the Casdoor console is on the way. For now, follow the steps on this page; they
-              take a few minutes.
-            </p>
+            <p className="mt-2 text-sm leading-6 text-muted-foreground">{t.installText}</p>
             <a href="#setup" className={buttonVariants({ className: "mt-4 w-full" })}>
-              {integration.type === "theme" ? "Apply this theme" : "Go to the steps"}
+              {integration.type === "theme" ? t.applyTheme : t.goToSteps}
             </a>
           </div>
 
           <div className="rounded-xl border bg-card p-5">
-            <h2 className="font-semibold">Details</h2>
+            <h2 className="font-semibold">{t.details}</h2>
             <dl className="mt-3 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2.5 text-sm">
               {details.map((d) => (
                 <div key={d.label} className="contents">
@@ -237,28 +251,28 @@ export default async function IntegrationPage({ params }: PageProps<"/integratio
                 </a>
               )}
               <a href={sourceUrl} className="flex items-center justify-between text-muted-foreground hover:text-foreground">
-                Source on GitHub
+                {t.sourceOnGitHub}
                 <GitHubIcon className="size-3.5" />
               </a>
               <a
-                href={`${links.request}?title=${encodeURIComponent(`${name}: `)}`}
+                href={`${links.request}?title=${encodeURIComponent(`${integration.name.en}: `)}`}
                 className="flex items-center justify-between text-muted-foreground hover:text-foreground"
               >
-                Report a problem
+                {t.reportProblem}
                 <Flag className="size-3.5" />
               </a>
             </div>
           </div>
 
           <div className="rounded-xl border bg-gradient-to-br from-accent to-background p-5">
-            <h2 className="font-semibold">New to Casdoor?</h2>
-            <p className="mt-1 text-sm leading-6 text-muted-foreground">Open-source identity and access management with SSO, MFA and social login.</p>
+            <h2 className="font-semibold">{t.newTitle}</h2>
+            <p className="mt-1 text-sm leading-6 text-muted-foreground">{t.newText}</p>
             <div className="mt-3 flex flex-col gap-2">
-              <a href={links.selfHost} className={buttonVariants({ variant: "outline", size: "sm" })}>
-                Self-host for free
+              <a href={docsUrl(lang, "basic/try-with-docker")} className={buttonVariants({ variant: "outline", size: "sm" })}>
+                {t.selfHost}
               </a>
               <a href={links.cloud} className={buttonVariants({ variant: "ghost", size: "sm" })}>
-                Try Casdoor Cloud
+                {t.tryCloud}
               </a>
             </div>
           </div>
@@ -269,15 +283,15 @@ export default async function IntegrationPage({ params }: PageProps<"/integratio
         <section className="border-t bg-muted/30">
           <div className="mx-auto max-w-7xl px-4 py-12 sm:px-6">
             <div className="mb-6 flex items-end justify-between gap-4">
-              <h2 className="text-2xl font-semibold tracking-tight">More {collection.title.toLowerCase()}</h2>
-              <Link href={`/${collection.slug}`} className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
-                View all
+              <h2 className="text-2xl font-semibold tracking-tight">{t.more(collectionTitle)}</h2>
+              <Link href={collectionHref} className="flex items-center gap-1 text-sm font-medium text-primary hover:underline">
+                {t.viewAll}
                 <ArrowRight className="size-4" />
               </Link>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               {related.map((i) => (
-                <IntegrationCard key={i.id} integration={i} />
+                <IntegrationCard key={i.id} integration={i} lang={lang} />
               ))}
             </div>
           </div>

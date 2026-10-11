@@ -43,7 +43,13 @@ func StaticFilter(ctx *context.Context) {
 		http.Redirect(ctx.ResponseWriter, ctx.Request, "/", http.StatusMovedPermanently)
 		return
 	}
+	if redirectEnglishPrefix(ctx, relPath) {
+		return
+	}
 	if relPath == "" {
+		if redirectToChinese(ctx, relPath) {
+			return
+		}
 		relPath = "index.html"
 	}
 	if !filepath.IsLocal(relPath) {
@@ -72,6 +78,9 @@ func StaticFilter(ctx *context.Context) {
 			target += "?" + ctx.Request.URL.RawQuery
 		}
 		http.Redirect(ctx.ResponseWriter, ctx.Request, target, http.StatusMovedPermanently)
+		return
+	}
+	if redirectToChinese(ctx, relPath+"/") {
 		return
 	}
 	serveFile(ctx, path, http.StatusOK)

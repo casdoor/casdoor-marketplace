@@ -11,6 +11,15 @@ The pages are built from the output of [casdoor-integrations](https://github.com
 
 A change to casdoor-integrations shows up on the site at the next build of this repository.
 
+## Languages
+
+The site's interface is in English and Chinese. Pages live under `src/app/[lang]`; all interface text is in `src/lib/i18n.ts` (the Chinese dictionary is typed against the English one, so a missing string fails the build).
+
+- English pages are at `/`, `/apps/`, `/integrations/<id>/`; Chinese ones at `/zh/`, `/zh/apps/`, `/zh/integrations/<id>/`. Next exports both under `build/en` and `build/zh`, and `scripts/move-default-locale.mjs` (`postbuild`) moves `build/en` to the root of `build/`. `next dev` maps the same addresses with rewrites.
+- Only the site's own text is translated. The integrations themselves (names, descriptions, guides) come from casdoor-integrations, which is English only, so they are in English on the Chinese pages too; the category and tag filters are translated in `i18n.ts`.
+- Every page has `hreflang` alternates and the sitemap lists both languages.
+- The backend redirects `/en/...` to the address without the prefix, and sends a visitor without a `lang` cookie whose browser prefers Chinese from an English page to the Chinese one. The language switcher in the header sets the cookie.
+
 ## Development
 
 ```bash

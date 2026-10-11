@@ -4,6 +4,7 @@ import { useState } from "react";
 import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { getMessages, type Locale } from "@/lib/i18n";
 import type { ThemeTemplate, Variable } from "@/lib/types";
 
 const htmlFields = new Set(["formSideHtml", "footerHtml"]);
@@ -12,7 +13,8 @@ const escapeHtml = (s: string) =>
 
 // Builds the JSON that the Import JSON button of Casdoor's application editor takes. Casdoor only imports it into
 // the application whose name and organization it names.
-export function ThemeImport({ theme, variables }: { theme: ThemeTemplate; variables: Variable[] }) {
+export function ThemeImport({ theme, variables, lang }: { theme: ThemeTemplate; variables: Variable[]; lang: Locale }) {
+  const m = getMessages(lang).theme;
   const [organization, setOrganization] = useState("");
   const [application, setApplication] = useState("");
   const [values, setValues] = useState<Record<string, string>>(() =>
@@ -40,7 +42,7 @@ export function ThemeImport({ theme, variables }: { theme: ThemeTemplate; variab
   );
   filled.themeData = { ...theme.themeData, colorPrimary: fill(theme.themeData.colorPrimary, false) };
   const json = JSON.stringify(
-    { name: application || "<application name>", organization: organization || "<organization>", ...filled },
+    { name: application || m.applicationValue, organization: organization || m.organizationValue, ...filled },
     null,
     2
   );
@@ -55,12 +57,12 @@ export function ThemeImport({ theme, variables }: { theme: ThemeTemplate; variab
     <div className="flex flex-col gap-4">
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Organization</span>
-          <Input value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder="e.g. acme" />
+          <span className="font-medium">{m.organization}</span>
+          <Input value={organization} onChange={(e) => setOrganization(e.target.value)} placeholder={m.organizationPlaceholder} />
         </label>
         <label className="flex flex-col gap-1 text-sm">
-          <span className="font-medium">Application name</span>
-          <Input value={application} onChange={(e) => setApplication(e.target.value)} placeholder="e.g. app-acme" />
+          <span className="font-medium">{m.application}</span>
+          <Input value={application} onChange={(e) => setApplication(e.target.value)} placeholder={m.applicationPlaceholder} />
         </label>
         {variables.map((v) => (
           <label key={v.name} className="flex flex-col gap-1 text-sm">
@@ -91,7 +93,7 @@ export function ThemeImport({ theme, variables }: { theme: ThemeTemplate; variab
         </pre>
         <Button size="sm" variant="secondary" className="absolute top-2 right-2" onClick={copy} disabled={!variables.every(valid)}>
           {copied ? <Check /> : <Copy />}
-          {copied ? "Copied" : "Copy"}
+          {copied ? m.copied : m.copy}
         </Button>
       </div>
     </div>

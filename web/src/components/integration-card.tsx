@@ -2,17 +2,18 @@ import Link from "next/link";
 import { BadgeCheck } from "lucide-react";
 import { IntegrationLogo } from "@/components/integration-logo";
 import { TypeIcon } from "@/components/type-icon";
+import { getMessages, localePath, translateTag, type Locale } from "@/lib/i18n";
 import { getAssetSrc } from "@/lib/integrations";
-import { typeLabels } from "@/lib/site";
 import type { Integration } from "@/lib/types";
 
-export async function IntegrationCard({ integration }: { integration: Integration }) {
+export async function IntegrationCard({ integration, lang }: { integration: Integration; lang: Locale }) {
+  const m = getMessages(lang);
   // every card has a banner of the same height: a theme's screenshot, or the logo on a soft gradient
   const screenshot = integration.screenshots?.[0] ? await getAssetSrc(integration.screenshots[0]) : undefined;
 
   return (
     <Link
-      href={`/integrations/${integration.id}`}
+      href={localePath(lang, `/integrations/${integration.id}/`)}
       className="group flex h-full flex-col overflow-hidden rounded-xl border bg-card transition-all hover:-translate-y-0.5 hover:border-primary/40 hover:shadow-lg hover:shadow-primary/5"
     >
       <div className="relative h-32 overflow-hidden border-b bg-gradient-to-br from-muted via-background to-accent">
@@ -35,18 +36,18 @@ export async function IntegrationCard({ integration }: { integration: Integratio
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex min-w-0 items-center gap-1 font-semibold">
             <span className="truncate">{integration.name.en}</span>
-            {integration.verified && <BadgeCheck className="size-4 shrink-0 text-primary" aria-label="Verified" />}
+            {integration.verified && <BadgeCheck className="size-4 shrink-0 text-primary" aria-label={m.integration.verifiedShort} />}
           </h3>
           <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
             <TypeIcon type={integration.type} className="size-3.5" />
-            {typeLabels[integration.type]}
+            {m.typeLabels[integration.type]}
           </span>
         </div>
         <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{integration.description.en}</p>
         <div className="mt-auto flex flex-wrap gap-1.5 pt-2">
           {(integration.tags ?? []).slice(0, 3).map((tag) => (
             <span key={tag} className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">
-              {tag}
+              {translateTag(tag, lang)}
             </span>
           ))}
         </div>

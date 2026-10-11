@@ -1,7 +1,9 @@
 import Link from "next/link";
 import { BookOpen, Plus } from "lucide-react";
+import { LanguageSwitcher } from "@/components/language-switcher";
 import { buttonVariants } from "@/components/ui/button";
-import { collections, links } from "@/lib/site";
+import { getMessages, localePath, type Locale } from "@/lib/i18n";
+import { collections, docsUrl, links } from "@/lib/site";
 
 function GitHubIcon(props: React.SVGProps<SVGSVGElement>) {
   return (
@@ -13,35 +15,37 @@ function GitHubIcon(props: React.SVGProps<SVGSVGElement>) {
 
 export { GitHubIcon };
 
-export function SiteHeader() {
+export function SiteHeader({ lang }: { lang: Locale }) {
+  const m = getMessages(lang);
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
-        <Link href="/" className="flex shrink-0 items-center gap-2">
+        <Link href={localePath(lang, "/")} className="flex shrink-0 items-center gap-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/casdoor-logo_1185x256.png" alt="Casdoor" className="h-7 w-auto" />
           <span className="rounded-md bg-accent px-1.5 py-0.5 text-xs font-semibold tracking-wide text-accent-foreground uppercase">
-            Marketplace
+            {m.header.badge}
           </span>
         </Link>
         <nav className="hidden items-center gap-1 text-sm md:flex">
           {collections.map((c) => (
             <Link
               key={c.slug}
-              href={`/${c.slug}`}
+              href={localePath(lang, `/${c.slug}/`)}
               className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
             >
-              {c.title}
+              {m.collections[c.type].title}
             </Link>
           ))}
         </nav>
         <div className="ml-auto flex items-center gap-1">
+          <LanguageSwitcher lang={lang} />
           <a
-            href={links.docs}
+            href={docsUrl(lang, "overview")}
             className="hidden items-center gap-1.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:flex"
           >
             <BookOpen className="size-4" />
-            Docs
+            {m.header.docs}
           </a>
           <a
             href={links.integrations}
@@ -52,14 +56,18 @@ export function SiteHeader() {
           </a>
           <a href={links.contribute} className={buttonVariants({ size: "sm", className: "ml-2" })}>
             <Plus />
-            Submit
+            {m.header.submit}
           </a>
         </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto border-t px-2 py-1.5 text-sm md:hidden">
         {collections.map((c) => (
-          <Link key={c.slug} href={`/${c.slug}`} className="shrink-0 rounded-md px-3 py-1.5 text-muted-foreground hover:bg-muted">
-            {c.title}
+          <Link
+            key={c.slug}
+            href={localePath(lang, `/${c.slug}/`)}
+            className="shrink-0 rounded-md px-3 py-1.5 text-muted-foreground hover:bg-muted"
+          >
+            {m.collections[c.type].title}
           </Link>
         ))}
       </nav>

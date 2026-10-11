@@ -1,24 +1,24 @@
 import { Lightbulb } from "lucide-react";
 import { InlineText } from "@/components/inline-text";
+import { formatMonth, getMessages, type Locale } from "@/lib/i18n";
 import { exampleCasdoorUrl, fillVariables } from "@/lib/variables";
 import type { ApplicationTemplate, Guide, GuideStep, ProviderTemplate } from "@/lib/types";
 
 export type Step = GuideStep & { list?: string[]; after?: string };
 
 // App integrations start with the same step: register the app as an application in Casdoor.
-export function appSteps(name: string, application: ApplicationTemplate, guide: Guide): Step[] {
+export function appSteps(name: string, application: ApplicationTemplate, guide: Guide, lang: Locale): Step[] {
+  const m = getMessages(lang).guide;
   const after = guide.redirectNote ? [guide.redirectNote] : [];
   if (guide.groupExample) {
-    const group = guide.groupExample.match(/`([^`]+)`/)?.[1];
-    after.push(
-      `To use groups, create them in the application's organization (for example ${guide.groupExample}) and add users. Then set **Token group format** to **Name** on the same tab, so tokens carry \`${group}\` rather than \`<organization>/${group}\`.`
-    );
+    const group = guide.groupExample.match(/`([^`]+)`/)?.[1] ?? "";
+    after.push(m.groupsNote(guide.groupExample, group));
   }
   const many = application.redirectUris.length > 1;
   return [
     {
-      title: `Register ${name} in Casdoor`,
-      text: `In the Casdoor console, open **Applications**, add an application for ${name}, and on its **OIDC/OAuth** tab copy the **Client ID** and **Client secret**. Add ${many ? "these redirect URLs" : "this redirect URL"} to **Redirect URLs**:`,
+      title: m.registerTitle(name),
+      text: m.registerText(name, many),
       list: application.redirectUris,
       after: after.join(" "),
     },
@@ -27,37 +27,35 @@ export function appSteps(name: string, application: ApplicationTemplate, guide: 
 }
 
 // Provider templates end with the same two steps: add the provider in Casdoor, then put it on an application.
-export function providerSteps(name: string, provider: ProviderTemplate, guide: Guide): Step[] {
+export function providerSteps(name: string, provider: ProviderTemplate, guide: Guide, lang: Locale): Step[] {
+  const m = getMessages(lang).guide;
+  const f = m.fields;
   const fields = [
-    { label: "Category", value: provider.category },
-    { label: "Type", value: provider.type },
-    { label: "Display name", value: provider.displayName },
-    { label: "Client ID", value: "{{clientId}}" },
-    { label: "Client secret", value: "{{clientSecret}}" },
-    ...(provider.domain ? [{ label: "Issuer URL", value: provider.domain }] : []),
-    { label: "Auth URL", value: provider.customAuthUrl },
-    { label: "Token URL", value: provider.customTokenUrl },
-    { label: "Scope", value: provider.scopes },
-    ...(provider.customUserInfoUrl ? [{ label: "UserInfo URL", value: provider.customUserInfoUrl }] : []),
-    ...(provider.customLogoutUrl ? [{ label: "Logout URL", value: provider.customLogoutUrl }] : []),
-    { label: "Enable PKCE", value: provider.enablePkce ? "On" : "Off" },
-    ...Object.entries(provider.userMapping ?? {}).map(([field, claim]) => ({ label: `User mapping: ${field}`, value: claim })),
+    { label: f.category, value: provider.category },
+    { label: f.type, value: provider.type },
+    { label: f.displayName, value: provider.displayName },
+    { label: f.clientId, value: "{{clientId}}" },
+    { label: f.clientSecret, value: "{{clientSecret}}" },
+    ...(provider.domain ? [{ label: f.issuerUrl, value: provider.domain }] : []),
+    { label: f.authUrl, value: provider.customAuthUrl },
+    { label: f.tokenUrl, value: provider.customTokenUrl },
+    { label: f.scope, value: provider.scopes },
+    ...(provider.customUserInfoUrl ? [{ label: f.userInfoUrl, value: provider.customUserInfoUrl }] : []),
+    ...(provider.customLogoutUrl ? [{ label: f.logoutUrl, value: provider.customLogoutUrl }] : []),
+    { label: f.enablePkce, value: provider.enablePkce ? f.on : f.off },
+    ...Object.entries(provider.userMapping ?? {}).map(([field, claim]) => ({ label: f.userMapping(field), value: claim })),
   ];
-  const after =
-    provider.type === "OIDC"
-      ? `**Request** next to Issuer URL fills in the other URLs from ${name}'s discovery document. Casdoor links users of every OIDC-type provider in an organization through the same field, so if the organization already has one, set **Type** to **Custom Flexible** instead, which links accounts per provider.`
-      : undefined;
   return [
     ...guide.steps,
     {
-      title: `Add ${name} as a provider in Casdoor`,
-      text: "In the Casdoor console, open **Providers**, click **Add**, and fill in:",
+      title: m.providerTitle(name),
+      text: m.providerText,
       fields,
-      after,
+      after: provider.type === "OIDC" ? m.oidcNote(name) : undefined,
     },
     {
-      title: "Add the provider to an application",
-      text: `Open **Applications**, edit the application people sign in to, and add the provider on its **Providers** tab. Its sign-in page now has a **${provider.displayName}** button.`,
+      title: m.applicationTitle,
+      text: m.applicationText(provider.displayName),
     },
   ];
 }
@@ -116,28 +114,24 @@ export function GuideView({
   steps,
   guide,
   values,
+  lang,
 }: {
   name: string;
   steps: Step[];
   guide: Guide;
   values: Record<string, string>;
+  lang: Locale;
 }) {
+  const m = getMessages(lang).guide;
   const fill = (s: string) => fillVariables(s, values);
-  const checkedOn = new Date(`${guide.checkedOn}-01T00:00:00Z`).toLocaleDateString("en-US", {
-    month: "long",
-    year: "numeric",
-    timeZone: "UTC",
-  });
 
   return (
     <section className="flex flex-col gap-8">
       <div className="rounded-lg border bg-muted/40 p-4 text-sm leading-6 text-muted-foreground">
-        <InlineText
-          text={`You need a running Casdoor, self-hosted or on Casdoor Cloud. In the examples, replace \`${exampleCasdoorUrl}\` with your Casdoor address (on Casdoor Cloud, something like \`https://acme.casdoor.com\`) and the other example.com addresses with your own.`}
-        />
+        <InlineText text={m.prerequisite(exampleCasdoorUrl)} />
       </div>
 
-      <h2 className="text-2xl font-semibold tracking-tight">Set up {name} with Casdoor</h2>
+      <h2 className="text-2xl font-semibold tracking-tight">{m.setUpTitle(name)}</h2>
       <ol className="space-y-10">
         {steps.map((step, i) => (
           <StepItem key={step.title} index={i + 1} step={step} fill={fill} />
@@ -148,7 +142,7 @@ export function GuideView({
         <div className="rounded-lg border p-5">
           <h2 className="mb-3 flex items-center gap-2 font-semibold">
             <Lightbulb className="size-5 text-primary" />
-            Good to know
+            {m.goodToKnow}
           </h2>
           <ul className="list-disc space-y-2 pl-5 text-sm leading-6 text-muted-foreground">
             {guide.tips.map((tip) => (
@@ -161,25 +155,25 @@ export function GuideView({
       )}
 
       <p className="text-xs leading-relaxed text-muted-foreground">
-        {name} settings are from its documentation as of {checkedOn} (
+        {m.sourcesBefore(name, formatMonth(guide.checkedOn, lang))}
         {guide.sources.map((source, i) => (
           <span key={source.href}>
-            {i > 0 && ", "}
+            {i > 0 && m.sourcesSeparator}
             <a href={source.href} className="underline" rel="noopener">
               {source.label}
             </a>
           </span>
         ))}
-        )
+        {m.sourcesAfter}
         {guide.docsUrl && (
           <>
-            ; see also the{" "}
+            {m.seeAlso}
             <a href={guide.docsUrl} className="underline">
-              Casdoor documentation
+              {m.casdoorDocs}
             </a>
           </>
         )}
-        . {name} is a trademark of its owner.
+        {m.trademark(name)}
       </p>
     </section>
   );

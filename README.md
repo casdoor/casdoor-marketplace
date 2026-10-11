@@ -12,4 +12,4 @@ cd web && npm install && npm run build && cd ..
 go run main.go
 ```
 
-The site is then at http://localhost:18300/integrations/ (`httpport` in `conf/app.conf`).
+The site is then at http://localhost:18300/ (English) and http://localhost:18300/zh/ (Chinese); `httpport` is in `conf/app.conf`.

@@ -4,7 +4,8 @@ import { useMemo, useState, type ReactNode } from "react";
 import { SearchX, X } from "lucide-react";
 import { useSearch } from "@/components/catalog-search";
 import { TypeIcon } from "@/components/type-icon";
-import { typeLabels } from "@/lib/site";
+import { getMessages, type Locale } from "@/lib/i18n";
+import { links } from "@/lib/site";
 import type { IntegrationType } from "@/lib/types";
 
 export type CatalogItem = {
@@ -76,7 +77,8 @@ function FacetGroup({
 }
 
 // Every card is in the server-rendered HTML; filtering only hides cards, so crawlers still see all of them.
-export function CatalogBrowser({ items, showTypes = true }: { items: CatalogItem[]; showTypes?: boolean }) {
+export function CatalogBrowser({ items, lang, showTypes = true }: { items: CatalogItem[]; lang: Locale; showTypes?: boolean }) {
+  const m = getMessages(lang);
   const { query, setQuery } = useSearch();
   const [types, setTypes] = useState<string[]>([]);
   const [categories, setCategories] = useState<string[]>([]);
@@ -98,18 +100,18 @@ export function CatalogBrowser({ items, showTypes = true }: { items: CatalogItem
   const ordered = useMemo(() => {
     const list = [...items];
     if (sort === "name") {
-      list.sort((a, b) => a.name.localeCompare(b.name));
+      list.sort((a, b) => a.name.localeCompare(b.name, lang));
     } else if (sort === "updated") {
-      list.sort((a, b) => b.updated.localeCompare(a.updated) || a.name.localeCompare(b.name));
+      list.sort((a, b) => b.updated.localeCompare(a.updated) || a.name.localeCompare(b.name, lang));
     } else {
-      list.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name));
+      list.sort((a, b) => a.rank - b.rank || a.name.localeCompare(b.name, lang));
     }
     return list;
-  }, [items, sort]);
+  }, [items, sort, lang]);
 
   const shown = ordered.filter(visible).length;
   const active = [
-    ...types.map((t) => ({ label: typeLabels[t as IntegrationType], clear: () => setTypes(toggle(types, t)) })),
+    ...types.map((t) => ({ label: m.typeLabels[t as IntegrationType], clear: () => setTypes(toggle(types, t)) })),
     ...categories.map((c) => ({ label: c, clear: () => setCategories(toggle(categories, c)) })),
     ...tags.map((t) => ({ label: t, clear: () => setTags(toggle(tags, t)) })),
     ...(q ? [{ label: `“${query.trim()}”`, clear: () => setQuery("") }] : []),
@@ -120,26 +122,26 @@ export function CatalogBrowser({ items, showTypes = true }: { items: CatalogItem
       <aside className="flex flex-col gap-6 lg:sticky lg:top-24 lg:self-start">
         {showTypes && (
           <FacetGroup
-            title="Type"
+            title={m.catalog.type}
             options={typeOptions as [string, number][]}
             selected={types}
             onToggle={(v) => setTypes(toggle(types, v))}
             render={(v) => (
               <>
                 <TypeIcon type={v as IntegrationType} className="size-4 shrink-0 text-muted-foreground" />
-                <span className="truncate">{typeLabels[v as IntegrationType]}s</span>
+                <span className="truncate">{m.typePlurals[v as IntegrationType]}</span>
               </>
             )}
           />
         )}
-        <FacetGroup title="Category" options={categoryOptions} selected={categories} onToggle={(v) => setCategories(toggle(categories, v))} />
-        <FacetGroup title="Capabilities" options={tagOptions} selected={tags} onToggle={(v) => setTags(toggle(tags, v))} />
+        <FacetGroup title={m.catalog.category} options={categoryOptions} selected={categories} onToggle={(v) => setCategories(toggle(categories, v))} />
+        <FacetGroup title={m.catalog.capabilities} options={tagOptions} selected={tags} onToggle={(v) => setTags(toggle(tags, v))} />
       </aside>
 
       <div className="flex min-w-0 flex-col gap-5">
         <div className="flex flex-wrap items-center gap-3">
           <p className="text-sm text-muted-foreground">
-            <span className="font-semibold text-foreground tabular-nums">{shown}</span> {shown === 1 ? "integration" : "integrations"}
+            <span className="font-semibold text-foreground tabular-nums">{shown}</span> {m.catalog.count(shown)}
           </p>
           <div className="flex flex-wrap gap-1.5">
             {active.map((a) => (
@@ -155,15 +157,15 @@ export function CatalogBrowser({ items, showTypes = true }: { items: CatalogItem
             ))}
           </div>
           <label className="ml-auto flex items-center gap-2 text-sm text-muted-foreground">
-            Sort by
+            {m.catalog.sortBy}
             <select
               value={sort}
               onChange={(e) => setSort(e.target.value as Sort)}
               className="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
             >
-              <option value="featured">Featured</option>
-              <option value="name">Name</option>
-              <option value="updated">Recently updated</option>
+              <option value="featured">{m.catalog.sortFeatured}</option>
+              <option value="name">{m.catalog.sortName}</option>
+              <option value="updated">{m.catalog.sortUpdated}</option>
             </select>
           </label>
         </div>
@@ -179,13 +181,10 @@ export function CatalogBrowser({ items, showTypes = true }: { items: CatalogItem
         {shown === 0 && (
           <div className="flex flex-col items-center gap-2 rounded-xl border border-dashed px-6 py-14 text-center">
             <SearchX className="size-8 text-muted-foreground" />
-            <p className="font-medium">Nothing matches yet</p>
-            <p className="max-w-sm text-sm text-muted-foreground">
-              Any app that speaks OpenID Connect, OAuth 2.0, SAML, CAS or LDAP works with Casdoor. Ask us to add a guide
-              for it.
-            </p>
-            <a href="https://github.com/casdoor/casdoor-integrations/issues/new" className="mt-2 text-sm font-medium text-primary hover:underline">
-              Request an integration
+            <p className="font-medium">{m.catalog.emptyTitle}</p>
+            <p className="max-w-sm text-sm text-muted-foreground">{m.catalog.emptyText}</p>
+            <a href={links.request} className="mt-2 text-sm font-medium text-primary hover:underline">
+              {m.catalog.request}
             </a>
           </div>
         )}

@@ -18,7 +18,7 @@ export function useSearch() {
   return useContext(SearchContext);
 }
 
-export function HeroSearch({ placeholder }: { placeholder: string }) {
+export function HeroSearch({ placeholder, label }: { placeholder: string; label: string }) {
   const { query, setQuery } = useSearch();
   return (
     <form
@@ -35,7 +35,7 @@ export function HeroSearch({ placeholder }: { placeholder: string }) {
         value={query}
         onChange={(e) => setQuery(e.target.value)}
         placeholder={placeholder}
-        aria-label="Search integrations"
+        aria-label={label}
         className="h-14 w-full rounded-xl border border-white/10 bg-white pr-4 pl-12 text-base text-foreground shadow-2xl shadow-black/30 outline-none placeholder:text-muted-foreground focus-visible:ring-4 focus-visible:ring-primary/40"
       />
     </form>
