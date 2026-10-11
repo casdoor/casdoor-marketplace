@@ -2,13 +2,17 @@ package routers
 
 import (
 	"net/http"
+	"slices"
 	"strconv"
 	"strings"
 
 	"github.com/beego/beego/context"
 )
 
-// English pages are at the root of web/build, Chinese ones under zh/ (web/scripts/move-default-locale.mjs).
+// English pages are at the root of web/build, the other languages under <language>/
+// (web/scripts/move-default-locale.mjs). Keep this list in step with `locales` in web/src/lib/i18n.ts.
+var prefixedLanguages = []string{"zh"}
+
 const languageCookie = "lang"
 
 // redirectEnglishPrefix sends /en/... to the same address without the prefix.
@@ -20,20 +24,23 @@ func redirectEnglishPrefix(ctx *context.Context, relPath string) bool {
 	return true
 }
 
-// redirectToChinese sends a first-time visitor whose browser prefers Chinese from an English page to the Chinese
-// one. The language switcher sets the cookie, after which the choice is left alone.
-func redirectToChinese(ctx *context.Context, relPath string) bool {
-	if relPath == "zh" || strings.HasPrefix(relPath, "zh/") {
-		return false
+// redirectToPreferredLanguage sends a first-time visitor whose browser prefers another language from an English page
+// to the same page in that language. The language switcher sets the cookie, after which the choice is left alone.
+func redirectToPreferredLanguage(ctx *context.Context, relPath string) bool {
+	for _, language := range prefixedLanguages {
+		if relPath == language || strings.HasPrefix(relPath, language+"/") {
+			return false
+		}
 	}
 	ctx.ResponseWriter.Header().Add("Vary", "Accept-Language")
 	if _, err := ctx.Request.Cookie(languageCookie); err == nil {
 		return false
 	}
-	if getPreferredLanguage(ctx.Request.Header.Get("Accept-Language")) != "zh" {
+	preferred := getPreferredLanguage(ctx.Request.Header.Get("Accept-Language"))
+	if !slices.Contains(prefixedLanguages, preferred) {
 		return false
 	}
-	redirect(ctx, "/zh/"+relPath, http.StatusFound)
+	redirect(ctx, "/"+preferred+"/"+relPath, http.StatusFound)
 	return true
 }
 

@@ -1,6 +1,8 @@
 package routers
 
 import (
+	"bytes"
+	"compress/gzip"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -47,7 +49,7 @@ func StaticFilter(ctx *context.Context) {
 		return
 	}
 	if relPath == "" {
-		if redirectToChinese(ctx, relPath) {
+		if redirectToPreferredLanguage(ctx, relPath) {
 			return
 		}
 		relPath = "index.html"
@@ -80,7 +82,7 @@ func StaticFilter(ctx *context.Context) {
 		http.Redirect(ctx.ResponseWriter, ctx.Request, target, http.StatusMovedPermanently)
 		return
 	}
-	if redirectToChinese(ctx, relPath+"/") {
+	if redirectToPreferredLanguage(ctx, relPath+"/") {
 		return
 	}
 	serveFile(ctx, path, http.StatusOK)
@@ -132,8 +134,33 @@ func serveFile(ctx *context.Context, path string, status int) {
 		header.Set("Cache-Control", "no-cache")
 	}
 
+	header.Add("Vary", "Accept-Encoding")
+	if len(data) > 1024 && isCompressible(header.Get("Content-Type")) && acceptsGzip(ctx.Request) {
+		var buf bytes.Buffer
+		zw := gzip.NewWriter(&buf)
+		_, _ = zw.Write(data)
+		_ = zw.Close()
+		data = buf.Bytes()
+		header.Set("Content-Encoding", "gzip")
+	}
+
 	ctx.ResponseWriter.WriteHeader(status)
 	if ctx.Request.Method != http.MethodHead {
 		_, _ = ctx.ResponseWriter.Write(data)
 	}
+}
+
+func isCompressible(contentType string) bool {
+	return strings.HasPrefix(contentType, "text/") || strings.HasPrefix(contentType, "application/json") ||
+		strings.HasPrefix(contentType, "application/xml") || strings.HasPrefix(contentType, "image/svg+xml")
+}
+
+func acceptsGzip(r *http.Request) bool {
+	for _, part := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+		coding, params, _ := strings.Cut(strings.TrimSpace(part), ";")
+		if strings.EqualFold(strings.TrimSpace(coding), "gzip") && strings.ReplaceAll(strings.TrimSpace(params), " ", "") != "q=0" {
+			return true
+		}
+	}
+	return false
 }

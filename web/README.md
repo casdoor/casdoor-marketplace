@@ -18,7 +18,9 @@ The site's interface is in English and Chinese. Pages live under `src/app/[lang]
 - English pages are at `/`, `/apps/`, `/integrations/<id>/`; Chinese ones at `/zh/`, `/zh/apps/`, `/zh/integrations/<id>/`. Next exports both under `build/en` and `build/zh`, and `scripts/move-default-locale.mjs` (`postbuild`) moves `build/en` to the root of `build/`. `next dev` maps the same addresses with rewrites.
 - Only the site's own text is translated. The integrations themselves (names, descriptions, guides) come from casdoor-integrations, which is English only, so they are in English on the Chinese pages too; the category and tag filters are translated in `i18n.ts`.
 - Every page has `hreflang` alternates and the sitemap lists both languages.
-- The backend redirects `/en/...` to the address without the prefix, and sends a visitor without a `lang` cookie whose browser prefers Chinese from an English page to the Chinese one. The language switcher in the header sets the cookie.
+- The backend redirects `/en/...` to the address without the prefix, and sends a visitor without a `lang` cookie whose browser prefers another of the site's languages from an English page to that language. The language menu in the header lists every language in `locales` and sets the cookie.
+
+To add a language: add it to `locales` and `htmlLangs` in `src/lib/i18n.ts` with its dictionary (and to `siteUrls`, the host its pages are canonical on), and to `prefixedLanguages` in `routers/language.go`.
 
 ## Development
 
