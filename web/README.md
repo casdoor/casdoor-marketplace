@@ -32,4 +32,5 @@ INTEGRATIONS_DIR=../../casdoor-integrations/dist npm run dev
 | Name | Default | Purpose |
 |---|---|---|
 | `INTEGRATIONS_DIR` | (clone the dist branch) | Local `dist/` of casdoor-integrations |
-| `NEXT_PUBLIC_SITE_URL` | `https://marketplace.casdoor.cn` | Base URL for canonical links, structured data and the sitemap |
+
+The same build is served at marketplace.casdoor.com and marketplace.casdoor.cn. Canonical links, hreflang, structured data and the sitemap put English pages on the .com host and Chinese pages on the .cn host (`siteUrls` in `src/lib/i18n.ts`).

@@ -6,7 +6,7 @@ import { CatalogBrowser } from "@/components/catalog-browser";
 import { HeroSearch, SearchProvider } from "@/components/catalog-search";
 import { TypeIcon } from "@/components/type-icon";
 import { toCatalogItems } from "@/lib/catalog";
-import { getMessages, isLocale, languageAlternates, localePath, type Locale } from "@/lib/i18n";
+import { getMessages, isLocale, languageAlternates, localePath, pageUrl, type Locale } from "@/lib/i18n";
 import { getIntegrations } from "@/lib/integrations";
 import { collections } from "@/lib/site";
 
@@ -27,7 +27,7 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/[collectio
   return {
     title: { absolute: getMessages(lang).collection.title(text.title) },
     description: text.description,
-    alternates: { canonical: localePath(lang, path), languages: languageAlternates(path) },
+    alternates: { canonical: pageUrl(lang, path), languages: languageAlternates(path) },
   };
 }
 

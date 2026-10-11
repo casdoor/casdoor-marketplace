@@ -16,12 +16,13 @@ import {
   isLocale,
   languageAlternates,
   localePath,
+  pageUrl,
   translateCategory,
   translateTag,
   type Locale,
 } from "@/lib/i18n";
 import { getBundle, getIntegration, getIntegrations } from "@/lib/integrations";
-import { docsUrl, getCollection, links, siteUrl } from "@/lib/site";
+import { docsUrl, getCollection, links } from "@/lib/site";
 import { exampleValues, fillVariables } from "@/lib/variables";
 
 // The site is a static export: every integration is a page built from the index, nothing else exists.
@@ -50,8 +51,8 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/integratio
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: localePath(lang, path), languages: languageAlternates(path) },
-    openGraph: { title, description, url: localePath(lang, path) },
+    alternates: { canonical: pageUrl(lang, path), languages: languageAlternates(path) },
+    openGraph: { title, description, url: pageUrl(lang, path) },
   };
 }
 
@@ -88,7 +89,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
       inLanguage: lang,
       applicationCategory: "SecurityApplication",
       softwareVersion: integration.latest,
-      url: `${siteUrl}${localePath(lang, `/integrations/${integration.id}/`)}`,
+      url: pageUrl(lang, `/integrations/${integration.id}/`),
       author: { "@type": "Organization", name: integration.author },
       offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
     },

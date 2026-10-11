@@ -1,8 +1,6 @@
 import type { Locale } from "@/lib/i18n";
 import type { IntegrationType } from "@/lib/types";
 
-export const siteUrl = process.env.NEXT_PUBLIC_SITE_URL ?? "https://marketplace.casdoor.cn";
-
 export type Collection = {
   slug: string;
   type: IntegrationType;

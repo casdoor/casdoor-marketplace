@@ -9,7 +9,7 @@ import { TypeIcon } from "@/components/type-icon";
 import { buttonVariants } from "@/components/ui/button";
 import { toCatalogItems } from "@/lib/catalog";
 import { getIntegrations } from "@/lib/integrations";
-import { getMessages, isLocale, languageAlternates, localePath, type Locale } from "@/lib/i18n";
+import { getMessages, isLocale, languageAlternates, localePath, pageUrl, type Locale } from "@/lib/i18n";
 import { collections, docsUrl, featuredIds, links } from "@/lib/site";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]">): Promise<Metadata> {
@@ -21,7 +21,7 @@ export async function generateMetadata({ params }: PageProps<"/[lang]">): Promis
   return {
     title: { absolute: m.home.title },
     description: m.home.description,
-    alternates: { canonical: localePath(lang, "/"), languages: languageAlternates("/") },
+    alternates: { canonical: pageUrl(lang, "/"), languages: languageAlternates("/") },
   };
 }
 

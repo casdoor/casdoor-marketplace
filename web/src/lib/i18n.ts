@@ -17,11 +17,22 @@ export function localePath(lang: Locale, path: string): string {
   return lang === defaultLocale ? path : `/${lang}${path}`;
 }
 
+// Both hosts serve the same build; English pages are canonical on the .com one and Chinese pages on the .cn one.
+export const siteUrls: Record<Locale, string> = {
+  en: "https://marketplace.casdoor.com",
+  zh: "https://marketplace.casdoor.cn",
+};
+
+// The canonical URL of a page in the given language; `path` is the English address.
+export function pageUrl(lang: Locale, path: string): string {
+  return `${siteUrls[lang]}${localePath(lang, path)}`;
+}
+
 // hreflang alternates for the metadata of a page at `path` (the English address).
 export function languageAlternates(path: string): Record<string, string> {
   return {
-    ...Object.fromEntries(locales.map((l) => [htmlLangs[l], localePath(l, path)])),
-    "x-default": path,
+    ...Object.fromEntries(locales.map((l) => [htmlLangs[l], pageUrl(l, path)])),
+    "x-default": pageUrl(defaultLocale, path),
   };
 }
 

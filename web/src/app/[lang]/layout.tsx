@@ -3,8 +3,7 @@ import { notFound } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { getMessages, htmlLangs, isLocale, locales } from "@/lib/i18n";
-import { siteUrl } from "@/lib/site";
+import { getMessages, htmlLangs, isLocale, locales, siteUrls } from "@/lib/i18n";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -30,7 +29,7 @@ export async function generateMetadata({ params }: LayoutProps<"/[lang]">): Prom
   }
   const m = getMessages(lang);
   return {
-    metadataBase: new URL(siteUrl),
+    metadataBase: new URL(siteUrls[lang]),
     title: {
       default: m.siteName,
       template: `%s | ${m.siteName}`,
