@@ -27,5 +27,10 @@ func main() {
 	// give the system a moment to release the port
 	time.Sleep(500 * time.Millisecond)
 
+	// the Next.js server listens on the next port and gets every page request
+	frontendPort := beego.BConfig.Listen.HTTPPort + 1
+	routers.InitFrontendProxy(frontendPort)
+	routers.StartFrontend(frontendPort, beego.BConfig.Listen.HTTPPort)
+
 	beego.Run()
 }

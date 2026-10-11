@@ -3,16 +3,17 @@ package routers
 import (
 	"bytes"
 	"compress/gzip"
+	"io"
 	"net/http"
+	"net/http/httputil"
+	"net/url"
 	"os"
-	"path/filepath"
+	"strconv"
 	"strings"
 
 	"github.com/beego/beego/context"
 	"github.com/casdoor/casdoor-marketplace/object"
 )
-
-const webDir = "web/build"
 
 var contentTypes = map[string]string{
 	".html":  "text/html; charset=utf-8",
@@ -30,7 +31,26 @@ var contentTypes = map[string]string{
 	".woff2": "font/woff2",
 }
 
-// StaticFilter serves the static export of the Next.js frontend in web/build.
+var frontendProxy *httputil.ReverseProxy
+
+// InitFrontendProxy points the pages at the Next.js server (StartFrontend) listening on port.
+func InitFrontendProxy(port int) {
+	target := &url.URL{Scheme: "http", Host: "127.0.0.1:" + strconv.Itoa(port)}
+	frontendProxy = httputil.NewSingleHostReverseProxy(target)
+	director := frontendProxy.Director
+	frontendProxy.Director = func(r *http.Request) {
+		// the original Host keeps the absolute URLs Next writes right; compression is done here after injecting analytics
+		host := r.Host
+		director(r)
+		r.Host = host
+		r.Header.Set("X-Accept-Encoding", r.Header.Get("Accept-Encoding"))
+		r.Header.Del("Accept-Encoding")
+	}
+	frontendProxy.ModifyResponse = modifyFrontendResponse
+}
+
+// StaticFilter answers everything but /api/: the catalog under /data/, the language redirects, and the pages, which
+// the Next.js server renders.
 func StaticFilter(ctx *context.Context) {
 	urlPath := ctx.Request.URL.Path
 	if strings.HasPrefix(urlPath, "/api/") {
@@ -40,122 +60,63 @@ func StaticFilter(ctx *context.Context) {
 		return
 	}
 
-	relPath := strings.Trim(urlPath, "/")
+	relPath := strings.TrimPrefix(urlPath, "/")
+	if strings.HasPrefix(relPath, "data/") {
+		serveData(ctx, strings.TrimPrefix(relPath, "data/"))
+		return
+	}
 	// the catalog used to be at /integrations/; it is the home page now
-	if relPath == "integrations" {
+	if strings.Trim(relPath, "/") == "integrations" {
 		http.Redirect(ctx.ResponseWriter, ctx.Request, "/", http.StatusMovedPermanently)
 		return
 	}
-	if redirectEnglishPrefix(ctx, relPath) {
+	if redirectEnglishPrefix(ctx, strings.Trim(relPath, "/")) {
 		return
 	}
-	if relPath == "" {
-		if redirectToPreferredLanguage(ctx, relPath) {
-			return
-		}
-		relPath = "index.html"
-	}
-	if !filepath.IsLocal(relPath) {
-		serveNotFound(ctx)
+	if isPagePath(relPath) && redirectToPreferredLanguage(ctx, relPath) {
 		return
 	}
 
-	if path := filepath.Join(webDir, relPath); isFile(path) {
-		serveFile(ctx, path, http.StatusOK)
-		return
-	}
-	if path := getSegmentPath(relPath); path != "" && isFile(path) {
-		serveFile(ctx, path, http.StatusOK)
-		return
-	}
-
-	// pages are <path>/index.html (trailingSlash in web/next.config.ts)
-	path := filepath.Join(webDir, relPath, "index.html")
-	if !isFile(path) {
-		serveNotFound(ctx)
-		return
-	}
-	if !strings.HasSuffix(urlPath, "/") {
-		target := "/" + relPath + "/"
-		if ctx.Request.URL.RawQuery != "" {
-			target += "?" + ctx.Request.URL.RawQuery
-		}
-		http.Redirect(ctx.ResponseWriter, ctx.Request, target, http.StatusMovedPermanently)
-		return
-	}
-	if redirectToPreferredLanguage(ctx, relPath+"/") {
-		return
-	}
-	serveFile(ctx, path, http.StatusOK)
+	frontendProxy.ServeHTTP(ctx.ResponseWriter, ctx.Request)
 }
 
-// The router prefetches segments as <page>/__next.integrations.$d$id.__PAGE__.txt, while the export writes them to
-// <page>/__next.integrations/$d$id/__PAGE__.txt.
-func getSegmentPath(relPath string) string {
-	dir, name := filepath.Split(relPath)
-	if !strings.HasPrefix(name, "__next.") || !strings.HasSuffix(name, ".txt") {
-		return ""
+// isPagePath tells the addresses of pages (they end with "/") from files and the admin console.
+func isPagePath(relPath string) bool {
+	if relPath != "" && !strings.HasSuffix(relPath, "/") {
+		return false
 	}
-	parts := strings.Split(strings.TrimSuffix(name, ".txt"), ".")
-	if len(parts) < 3 {
-		return ""
-	}
-	segments := append([]string{parts[0] + "." + parts[1]}, parts[2:]...)
-	return filepath.Join(webDir, dir, filepath.Join(segments...)+".txt")
+	return !strings.HasPrefix(relPath, "_next/") && !strings.HasPrefix(relPath, "admin/") && !strings.HasPrefix(relPath, "og/")
 }
 
-func isFile(path string) bool {
-	info, err := os.Stat(path)
-	return err == nil && !info.IsDir()
-}
-
-func serveNotFound(ctx *context.Context) {
-	path := filepath.Join(webDir, "404.html")
-	if !isFile(path) {
-		http.NotFound(ctx.ResponseWriter, ctx.Request)
-		return
+func modifyFrontendResponse(resp *http.Response) error {
+	contentType := resp.Header.Get("Content-Type")
+	if !strings.HasPrefix(contentType, "text/html") && !isCompressible(contentType) {
+		return nil
 	}
-	serveFile(ctx, path, http.StatusNotFound)
-}
-
-func serveFile(ctx *context.Context, path string, status int) {
-	data, err := os.ReadFile(path)
+	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
-		return
+		return err
 	}
+	_ = resp.Body.Close()
 
-	if strings.HasSuffix(path, ".html") && !strings.Contains(filepath.ToSlash(path), "/admin/") {
+	if strings.HasPrefix(contentType, "text/html") && !strings.HasPrefix(resp.Request.URL.Path, "/admin") {
 		data = injectAnalytics(data)
 	}
-
-	header := ctx.ResponseWriter.Header()
-	if contentType, ok := contentTypes[strings.ToLower(filepath.Ext(path))]; ok {
-		header.Set("Content-Type", contentType)
-	}
-	if strings.Contains(filepath.ToSlash(path), "/_next/static/") {
-		header.Set("Cache-Control", "public, max-age=31536000, immutable")
-	} else {
-		header.Set("Cache-Control", "no-cache")
-	}
-
-	header.Add("Vary", "Accept-Encoding")
-	if len(data) > 1024 && isCompressible(header.Get("Content-Type")) && acceptsGzip(ctx.Request) {
+	if len(data) > 1024 && acceptsGzip(resp.Request.Header.Get("X-Accept-Encoding")) {
 		var buf bytes.Buffer
 		zw := gzip.NewWriter(&buf)
 		_, _ = zw.Write(data)
 		_ = zw.Close()
 		data = buf.Bytes()
-		header.Set("Content-Encoding", "gzip")
+		resp.Header.Set("Content-Encoding", "gzip")
 	}
-
-	ctx.ResponseWriter.WriteHeader(status)
-	if ctx.Request.Method != http.MethodHead {
-		_, _ = ctx.ResponseWriter.Write(data)
-	}
+	resp.Header.Add("Vary", "Accept-Encoding")
+	resp.Header.Set("Content-Length", strconv.Itoa(len(data)))
+	resp.Body = io.NopCloser(bytes.NewReader(data))
+	return nil
 }
 
-// injectAnalytics puts the analytics set in the admin console into the <head> of a page. The build has none, so a
+// injectAnalytics puts the analytics set in the admin console into the <head> of a page. The code has none, so a
 // deployment only reports to the analytics its own admins set.
 func injectAnalytics(data []byte) []byte {
 	analytics := object.GetAnalyticsHtml()
@@ -165,13 +126,36 @@ func injectAnalytics(data []byte) []byte {
 	return bytes.Replace(data, []byte("</head>"), []byte(analytics+"</head>"), 1)
 }
 
-func isCompressible(contentType string) bool {
-	return strings.HasPrefix(contentType, "text/") || strings.HasPrefix(contentType, "application/json") ||
-		strings.HasPrefix(contentType, "application/xml") || strings.HasPrefix(contentType, "image/svg+xml")
+func writeBody(ctx *context.Context, status int, data []byte) {
+	header := ctx.ResponseWriter.Header()
+	header.Add("Vary", "Accept-Encoding")
+	if len(data) > 1024 && isCompressible(header.Get("Content-Type")) && acceptsGzip(ctx.Request.Header.Get("Accept-Encoding")) {
+		var buf bytes.Buffer
+		zw := gzip.NewWriter(&buf)
+		_, _ = zw.Write(data)
+		_ = zw.Close()
+		data = buf.Bytes()
+		header.Set("Content-Encoding", "gzip")
+	}
+	ctx.ResponseWriter.WriteHeader(status)
+	if ctx.Request.Method != http.MethodHead {
+		_, _ = ctx.ResponseWriter.Write(data)
+	}
 }
 
-func acceptsGzip(r *http.Request) bool {
-	for _, part := range strings.Split(r.Header.Get("Accept-Encoding"), ",") {
+func isFile(path string) bool {
+	info, err := os.Stat(path)
+	return err == nil && !info.IsDir()
+}
+
+func isCompressible(contentType string) bool {
+	return strings.HasPrefix(contentType, "text/") || strings.HasPrefix(contentType, "application/json") ||
+		strings.HasPrefix(contentType, "application/xml") || strings.HasPrefix(contentType, "image/svg+xml") ||
+		strings.HasPrefix(contentType, "application/javascript")
+}
+
+func acceptsGzip(acceptEncoding string) bool {
+	for _, part := range strings.Split(acceptEncoding, ",") {
 		coding, params, _ := strings.Cut(strings.TrimSpace(part), ";")
 		if strings.EqualFold(strings.TrimSpace(coding), "gzip") && strings.ReplaceAll(strings.TrimSpace(params), " ", "") != "q=0" {
 			return true

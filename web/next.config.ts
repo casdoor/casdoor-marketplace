@@ -2,28 +2,29 @@ import type { NextConfig } from "next";
 
 const isDev = process.env.NODE_ENV === "development";
 
-// `next build` writes a static site to web/build, served by the Go + Beego backend in the repository root.
-// Pages are under app/[lang]; scripts/move-default-locale.mjs then moves build/en to the root of build, so English
-// pages keep their addresses and Chinese ones are under /zh/. `next dev` does the same with rewrites.
+// `next build` writes a Next.js server to web/build/standalone (scripts/prepare-standalone.mjs finishes it), which the
+// Go backend in the repository root starts and sends the pages to; the backend itself answers /api/ and /data/.
+// Pages are under app/[lang]: English ones are served at the root through the rewrites below, Chinese ones under /zh/.
 const nextConfig: NextConfig = {
-  ...(isDev
-    ? {
-        async rewrites() {
-          return [
-            // the backend (go run main.go) answers the API
+  output: "standalone",
+  distDir: "build",
+  async rewrites() {
+    return [
+      // with `next dev`, the backend (go run main.go) answers the API and the catalog
+      ...(isDev
+        ? [
             { source: "/api/:path*", destination: "http://localhost:18300/api/:path*" },
-            { source: "/", destination: "/en" },
-            { source: "/:path((?!en(?:/|$)|zh(?:/|$)|admin(?:/|$)|api(?:/|$)).*)", destination: "/en/:path" },
-          ];
-        },
-      }
-    : {
-        output: "export",
-        distDir: "build",
-      }),
-  // every page is <path>/index.html, served at <path>/
+            { source: "/data/:path*", destination: "http://localhost:18300/data/:path*" },
+          ]
+        : []),
+      { source: "/", destination: "/en" },
+      { source: "/:path((?!en(?:/|$)|zh(?:/|$)|admin(?:/|$)|api(?:/|$)|data(?:/|$)|og(?:/|$)|_next(?:/|$)).*)", destination: "/en/:path" },
+    ];
+  },
   trailingSlash: true,
   images: { unoptimized: true },
+  // the backend compresses responses after putting the analytics into them
+  compress: false,
   experimental: {
     globalNotFound: true,
   },

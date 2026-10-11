@@ -58,15 +58,17 @@ Every integration has a page with its full guide at `https://marketplace.casdoor
 ## How it works
 
 ```
-casdoor/casdoor-integrations          this repository                      Casdoor instances
-  integrations/<type>/<id>/   --CI-->   web/  (Next.js static export)  -->   Marketplace page
-  dist branch: index.json,              Go backend serves web/build          reads index.json and
-  bundles, logos, screenshots           at marketplace.casdoor.com           bundles from the CDN
+                    this repository                                         Casdoor instances
+  MySQL  <-->  Go backend (:18300)  --/data/-->  index.json, bundles  -->  Marketplace page
+  integrations,  /api/, /data/, admin    proxies pages to                   (marketplaceUrl, or the
+  versions,      console               Next.js server (:18301)              dist branch on jsDelivr)
+  files
 ```
 
-- The content lives in [casdoor-integrations](https://github.com/casdoor/casdoor-integrations). Its CI validates every manifest and publishes `index.json` and the bundles to its `dist` branch.
-- This repository is the website. At build time `web/scripts/fetch-integrations.mjs` copies the `dist` branch into `web/public/data`, and every integration, type page and guide is rendered to static HTML. The site also serves the data under `/data/`.
-- Casdoor instances do not depend on this site being up: they read the catalog from `https://cdn.jsdelivr.net/gh/casdoor/casdoor-integrations@dist` by default (`marketplaceUrl` in `conf/app.conf` points them to a mirror).
+- The catalog lives in MySQL: integrations, their versions and the files of every version (bundle, logo, screenshots). The backend serves it under `/data/` in the layout of the casdoor-integrations build: `/data/index.json` and `/data/integrations/<id>/<version>/<file>`.
+- The pages are rendered by a Next.js server for every request, from `/data/`. The Go backend starts it (`web/build/standalone/server.js`, on the next port) and proxies every page to it; it answers `/api/` and `/data/` itself, and redirects between the languages.
+- [casdoor-integrations](https://github.com/casdoor/casdoor-integrations) holds the official integrations. `tools/import_integrations` copies its build into the database: `go run ./tools/import_integrations -dir ../casdoor-integrations/dist` shows what it would add, `-apply` writes it. Published versions do not change.
+- Casdoor instances do not depend on this site being up: they read the catalog from `https://cdn.jsdelivr.net/gh/casdoor/casdoor-integrations@dist` by default (`marketplaceUrl` in their `conf/app.conf` points them to a mirror, such as this site's `/data`).
 
 ## Repository layout
 
@@ -78,25 +80,23 @@ casdoor/casdoor-integrations          this repository                      Casdo
 
 ## Run locally
 
-Requirements: Go 1.23+, Node.js 20+.
+Requirements: Go 1.23+, Node.js 20+, MySQL.
+
+Set `dataSourceName` in `conf/app.conf`, import the catalog (from a local build of casdoor-integrations, or a clone of its `dist` branch), build the frontend and run the backend:
 
 ```bash
+go run ./tools/import_integrations -dir ../casdoor-integrations/dist -apply
 cd web && npm install && npm run build && cd ..
 go run main.go
 ```
 
 The site is then at http://localhost:18300/ (English) and http://localhost:18300/zh/ (Chinese).
 
-For frontend work with hot reload, run `npm run dev` in `web/`. To preview local changes to the catalog, build casdoor-integrations first and point the site at its output:
-
-```bash
-cd web
-INTEGRATIONS_DIR=../../casdoor-integrations/dist npm run dev
-```
+For frontend work with hot reload, run the backend and `npm run dev` in `web/` (http://localhost:3000/, which sends `/api/` and `/data/` to the backend). Without `dataSourceName` the backend serves `/data/` from `web/public/data`, which `npm run dev` fills from casdoor-integrations (`INTEGRATIONS_DIR=../../casdoor-integrations/dist npm run dev` for a local build).
 
 ## Admin console
 
-`/admin/` is the admin console. People sign in with Casdoor, and admins of the Casdoor application's organization can change the site's settings, which are kept in MySQL:
+`/admin/` is the admin console. People sign in with Casdoor; the user named `admin` of the Casdoor application's organization runs the site and can change its settings, which are kept in MySQL:
 
 - **Analytics**: a Google Analytics measurement ID and a Baidu Tongji site code. The backend puts their scripts into every public page it serves. Nothing is preset, so a new deployment reports to no analytics until its admins set them.
 
@@ -106,7 +106,7 @@ To turn it on, set in `conf/app.conf` (or as environment variables of the same n
 |---|---|
 | `dataSourceName`, `dbName` | MySQL, e.g. `root:123456@tcp(localhost:3306)/` and `casdoor_marketplace`. The tables are created on start |
 | `casdoorEndpoint`, `clientId`, `clientSecret` | The Casdoor application to sign in with. Add `https://<host>/api/callback` to its redirect URLs for every host the site is served at |
-| `casdoorOrganization` | Only users of this organization may sign in; its admins manage the site |
+| `casdoorOrganization` | Only users of this organization may sign in; its user named `admin` runs the site |
 
 Without `dataSourceName` the site still serves every page, only without the admin console and settings.
 

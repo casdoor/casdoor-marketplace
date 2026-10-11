@@ -114,7 +114,7 @@ export function AdminConsole() {
         {account?.hasCasdoor && !user && (
           <div className="flex flex-col items-start gap-4">
             <h1 className="text-xl font-semibold">Sign in</h1>
-            <p className="text-sm text-muted-foreground">The admin console is for admins of the site&apos;s Casdoor organization.</p>
+            <p className="text-sm text-muted-foreground">The admin console is for the site&apos;s admin account.</p>
             {/* the backend redirects to Casdoor, so this is a full page load */}
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
             <a href="/api/signin" className={buttonVariants()}>
@@ -125,7 +125,7 @@ export function AdminConsole() {
 
         {user && !user.isAdmin && (
           <p className="text-sm text-muted-foreground">
-            {user.owner}/{user.name} is not an admin of this site. Sign out and sign in with an admin account.
+            {user.owner}/{user.name} is not the admin of this site. Sign out and sign in with the admin account.
           </p>
         )}
 

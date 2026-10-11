@@ -5,9 +5,8 @@
   "scripts": {
     "predev": "node scripts/fetch-integrations.mjs",
     "dev": "next dev",
-    "prebuild": "node scripts/fetch-integrations.mjs",
     "build": "next build",
-    "postbuild": "node scripts/move-default-locale.mjs",
+    "postbuild": "node scripts/prepare-standalone.mjs",
     "lint": "eslint"
   },
   "dependencies": {

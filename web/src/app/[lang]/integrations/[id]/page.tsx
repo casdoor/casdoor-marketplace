@@ -27,13 +27,8 @@ import { docsUrl, getCollection, links } from "@/lib/site";
 import type { Integration } from "@/lib/types";
 import { exampleValues, fillVariables } from "@/lib/variables";
 
-// The site is a static export: every integration is a page built from the index, nothing else exists.
-export const dynamicParams = false;
-
-export async function generateStaticParams() {
-  const integrations = await getIntegrations();
-  return integrations.map((i) => ({ id: i.id }));
-}
+// rendered for every request from the catalog in the database (the backend serves it under /data)
+export const dynamic = "force-dynamic";
 
 // Themes are shared with their screenshot (1280x800), everything else with its image from /og/integrations/.
 function shareImageOf(integration: Integration): ShareImage {

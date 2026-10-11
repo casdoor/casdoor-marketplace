@@ -34,7 +34,7 @@ func InitAdapter() {
 	}
 	engine.SetConnMaxLifetime(5 * time.Minute)
 
-	err = engine.Sync2(new(Setting))
+	err = engine.Sync2(new(Setting), new(Integration), new(IntegrationVersion), new(IntegrationFile))
 	if err != nil {
 		panic(err)
 	}
@@ -53,4 +53,8 @@ func createDatabase(dataSourceName string, dbName string) error {
 
 func HasDatabase() bool {
 	return engine != nil
+}
+
+func GetEngine() *xorm.Engine {
+	return engine
 }

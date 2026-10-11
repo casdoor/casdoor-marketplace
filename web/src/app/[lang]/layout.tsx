@@ -4,7 +4,7 @@ import { Geist, Geist_Mono } from "next/font/google";
 import { BaiduTongjiPageview } from "@/components/baidu-tongji";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
-import { getMessages, htmlLangs, isLocale, locales, siteUrls } from "@/lib/i18n";
+import { getMessages, htmlLangs, isLocale, siteUrls } from "@/lib/i18n";
 import "../globals.css";
 
 const geistSans = Geist({
@@ -17,11 +17,8 @@ const geistMono = Geist_Mono({
   subsets: ["latin"],
 });
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return locales.map((lang) => ({ lang }));
-}
+// rendered for every request from the catalog in the database (the backend serves it under /data)
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: LayoutProps<"/[lang]">): Promise<Metadata> {
   const { lang } = await params;

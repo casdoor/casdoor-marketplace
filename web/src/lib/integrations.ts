@@ -1,13 +1,25 @@
-import fs from "node:fs/promises";
-import path from "node:path";
 import type { Bundle, Integration, IntegrationIndex } from "@/lib/types";
 
-// scripts/fetch-integrations.mjs copies the build of casdoor/casdoor-integrations here before `next dev` and
-// `next build`; the pages read it at build time and the static site serves it under /data.
-const dataDir = path.join(process.cwd(), "public", "data");
+// The Go backend serves the catalog from the database under /data (index.json and the files of every version); it
+// starts this server with MARKETPLACE_BACKEND_URL set. Pages are rendered for every request, so new versions show up
+// at once.
+export const backendUrl = process.env.MARKETPLACE_BACKEND_URL ?? "http://localhost:18300";
 
 async function readJson<T>(relativePath: string): Promise<T> {
-  return JSON.parse(await fs.readFile(path.join(dataDir, relativePath), "utf8"));
+  const res = await fetch(`${backendUrl}/data/${relativePath}`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`${relativePath}: ${res.status} ${res.statusText}`);
+  }
+  return res.json();
+}
+
+// The content of a file of the catalog, such as a logo, for the share images.
+export async function readAsset(relativePath: string): Promise<{ data: ArrayBuffer; contentType: string }> {
+  const res = await fetch(`${backendUrl}/data/${relativePath}`, { cache: "no-store" });
+  if (!res.ok) {
+    throw new Error(`${relativePath}: ${res.status} ${res.statusText}`);
+  }
+  return { data: await res.arrayBuffer(), contentType: res.headers.get("Content-Type") ?? "application/octet-stream" };
 }
 
 export async function getIndex(): Promise<IntegrationIndex> {

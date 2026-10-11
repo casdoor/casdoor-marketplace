@@ -2,7 +2,8 @@ import { getMessages, pageUrl } from "@/lib/i18n";
 import { getIntegrations } from "@/lib/integrations";
 import { collections } from "@/lib/site";
 
-export const dynamic = "force-static";
+// rendered for every request from the catalog in the database (the backend serves it under /data)
+export const dynamic = "force-dynamic";
 
 // https://llmstxt.org: the pages of the site as a Markdown list, for language models.
 export async function GET() {

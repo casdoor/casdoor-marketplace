@@ -11,11 +11,8 @@ import { getIntegrations } from "@/lib/integrations";
 import { breadcrumbList, jsonLd, pageMetadata } from "@/lib/metadata";
 import { collections } from "@/lib/site";
 
-export const dynamicParams = false;
-
-export function generateStaticParams() {
-  return collections.map((c) => ({ collection: c.slug }));
-}
+// rendered for every request from the catalog in the database (the backend serves it under /data)
+export const dynamic = "force-dynamic";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/[collection]">): Promise<Metadata> {
   const { lang, collection } = await params;

@@ -9,8 +9,8 @@ import (
 	"github.com/beego/beego/context"
 )
 
-// English pages are at the root of web/build, the other languages under <language>/
-// (web/scripts/move-default-locale.mjs). Keep this list in step with `locales` in web/src/lib/i18n.ts.
+// English pages are at the root, the other languages under <language>/ (the rewrites in web/next.config.ts).
+// Keep this list in step with `locales` in web/src/lib/i18n.ts.
 var prefixedLanguages = []string{"zh"}
 
 const languageCookie = "lang"

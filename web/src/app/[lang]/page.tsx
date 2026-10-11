@@ -13,6 +13,9 @@ import { getMessages, htmlLangs, isLocale, localePath, pageUrl, type Locale } fr
 import { jsonLd, pageMetadata } from "@/lib/metadata";
 import { collections, docsUrl, featuredIds, links } from "@/lib/site";
 
+// rendered for every request from the catalog in the database (the backend serves it under /data)
+export const dynamic = "force-dynamic";
+
 export async function generateMetadata({ params }: PageProps<"/[lang]">): Promise<Metadata> {
   const { lang } = await params;
   if (!isLocale(lang)) {

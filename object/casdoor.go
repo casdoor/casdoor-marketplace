@@ -13,7 +13,7 @@ import (
 	"github.com/casdoor/casdoor-marketplace/conf"
 )
 
-// User is who signed in to the admin console with Casdoor. The site keeps no user table: the session holds the user.
+// User is who signed in with Casdoor. The site keeps no user table: the session holds the user.
 type User struct {
 	Owner       string `json:"owner"`
 	Name        string `json:"name"`
@@ -21,6 +21,8 @@ type User struct {
 	Avatar      string `json:"avatar"`
 	IsAdmin     bool   `json:"isAdmin"`
 }
+
+const AdminUserName = "admin"
 
 var casdoorHttpClient = &http.Client{Timeout: 15 * time.Second}
 
@@ -99,5 +101,7 @@ func GetUserByOAuthCode(code string) (*User, error) {
 	if user.DisplayName == "" {
 		user.DisplayName = user.Name
 	}
+	// everyone of the organization can sign in; the site is run by its user named admin
+	user.IsAdmin = user.Name == AdminUserName
 	return user, nil
 }

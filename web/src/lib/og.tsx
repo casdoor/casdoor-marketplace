@@ -1,27 +1,33 @@
 import fs from "node:fs/promises";
 import path from "node:path";
 import { ImageResponse } from "next/og";
+import { readAsset } from "@/lib/integrations";
 
-const publicDir = path.join(process.cwd(), "public");
+const brandLogo = path.join(process.cwd(), "public", "casdoor-logo_1185x256_dark.png");
 
-const mimeTypes: Record<string, string> = { ".svg": "image/svg+xml", ".png": "image/png", ".jpg": "image/jpeg" };
+function toDataUrl(data: Uint8Array, contentType: string): string {
+  return `data:${contentType};base64,${Buffer.from(data).toString("base64")}`;
+}
 
-async function dataUrl(relativePath: string): Promise<string> {
-  const data = await fs.readFile(path.join(publicDir, relativePath));
-  return `data:${mimeTypes[path.extname(relativePath).toLowerCase()]};base64,${data.toString("base64")}`;
+async function logoDataUrl(relativePath: string): Promise<string> {
+  const { data, contentType } = await readAsset(relativePath);
+  return toDataUrl(new Uint8Array(data), contentType.split(";")[0]);
 }
 
 type ShareImageProps = {
   label: string;
   title: string;
   text: string;
-  // a path under public/
+  // a logo of the catalog, as index.json gives it
   logo?: string;
 };
 
 // The 1200x630 share image of a page: a label, a title and a line of text on the colors of the hero.
 export async function shareImage({ label, title, text, logo }: ShareImageProps) {
-  const [brand, logoSrc] = await Promise.all([dataUrl("casdoor-logo_1185x256_dark.png"), logo ? dataUrl(logo) : undefined]);
+  const [brand, logoSrc] = await Promise.all([
+    fs.readFile(brandLogo).then((data) => toDataUrl(data, "image/png")),
+    logo ? logoDataUrl(logo) : undefined,
+  ]);
   return new ImageResponse(
     (
       <div
