@@ -26,11 +26,11 @@ export function LanguageSwitcher({ lang }: { lang: Locale }) {
     <DropdownMenu>
       <DropdownMenuTrigger
         aria-label={getMessages(lang).header.language}
-        className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-muted data-popup-open:text-foreground"
+        className="flex items-center gap-1.5 rounded-md px-3 py-2 text-sm whitespace-nowrap text-muted-foreground transition-colors outline-none hover:bg-muted hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring data-popup-open:bg-muted data-popup-open:text-foreground"
       >
         <Languages className="size-4" />
-        {getMessages(lang).languageName}
-        <ChevronDown className="size-3.5" />
+        <span className="hidden sm:inline">{getMessages(lang).languageName}</span>
+        <ChevronDown className="hidden size-3.5 sm:block" />
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-auto min-w-36">
         {locales.map((l) => (

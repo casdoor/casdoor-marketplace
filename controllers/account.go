@@ -10,7 +10,17 @@ import (
 	"github.com/casdoor/casdoor-marketplace/object"
 )
 
-const adminPath = "/admin/"
+// where the browser goes after signing in when the sign-in link does not say
+const consolePath = "/console/"
+
+// getSigninRedirect returns the path the sign-in link asks to come back to, if it is a path of this site.
+func (c *ApiController) getSigninRedirect() string {
+	redirect := c.GetString("redirect")
+	if !strings.HasPrefix(redirect, "/") || strings.HasPrefix(redirect, "//") || strings.ContainsAny(redirect, "\\\r\n") {
+		return consolePath
+	}
+	return redirect
+}
 
 // The address Casdoor sends the code to; register it in the Casdoor application's redirect URLs for every host.
 func (c *ApiController) getRedirectUri() string {
@@ -37,10 +47,11 @@ func (c *ApiController) Signin() {
 	}
 	state := hex.EncodeToString(buf)
 	c.SetSession("oauthState", state)
+	c.SetSession("signinRedirect", c.getSigninRedirect())
 	c.Redirect(object.GetSigninUrl(c.getRedirectUri(), state), http.StatusFound)
 }
 
-// Callback signs the user in with the code from Casdoor and goes back to the admin console.
+// Callback signs the user in with the code from Casdoor and goes back to the page the sign-in started from.
 func (c *ApiController) Callback() {
 	state, _ := c.GetSession("oauthState").(string)
 	c.DelSession("oauthState")
@@ -56,9 +67,15 @@ func (c *ApiController) Callback() {
 		return
 	}
 
+	redirect, _ := c.GetSession("signinRedirect").(string)
+	c.DelSession("signinRedirect")
+	if redirect == "" {
+		redirect = consolePath
+	}
+
 	c.SetSessionUser(user)
 	logs.Info("signin: %s/%s (admin: %v)", user.Owner, user.Name, user.IsAdmin)
-	c.Redirect(adminPath, http.StatusFound)
+	c.Redirect(redirect, http.StatusFound)
 }
 
 func (c *ApiController) Signout() {

@@ -93,6 +93,10 @@ const en = {
     docs: "Docs",
     submit: "Submit",
     language: "Language",
+    signin: "Sign in",
+    console: "Console",
+    settings: "Site settings",
+    signout: "Sign out",
   },
 
   footer: {
@@ -277,6 +281,31 @@ const en = {
     copied: "Copied",
   },
 
+  console: {
+    title: "Console",
+    description: "Manage the integrations you publish on the Casdoor Marketplace.",
+    loading: "Loading...",
+    unavailable: "Signing in is not available on this site.",
+    signinTitle: "Sign in to manage your integrations",
+    signinText:
+      "Sign in with GitHub or Google to see the integrations you publish, their review status and their versions. Casdoor Cloud accounts work too.",
+    signin: "Sign in",
+    signedInAs: "Signed in as",
+    myIntegrations: "My integrations",
+    emptyTitle: "No integrations yet",
+    emptyText:
+      "Uploading integrations from the console is coming soon. Until then, integrations are submitted as pull requests to casdoor-integrations.",
+    howToSubmit: "How to submit",
+    versions: "Versions",
+    view: "View page",
+    statuses: {
+      Published: "Published",
+      Pending: "In review",
+      Rejected: "Rejected",
+      Revoked: "Revoked",
+    } as Record<string, string>,
+  },
+
   notFound: {
     title: "Page not found",
     text: "This page does not exist, or the integration was removed.",
@@ -377,6 +406,10 @@ const zh: Messages = {
     docs: "文档",
     submit: "提交",
     language: "语言",
+    signin: "登录",
+    console: "控制台",
+    settings: "站点设置",
+    signout: "退出登录",
   },
 
   footer: {
@@ -566,6 +599,29 @@ const zh: Messages = {
     organizationValue: "<组织>",
     copy: "复制",
     copied: "已复制",
+  },
+
+  console: {
+    title: "控制台",
+    description: "管理你在 Casdoor 集成市场发布的集成。",
+    loading: "加载中...",
+    unavailable: "这个站点没有开放登录。",
+    signinTitle: "登录后管理你的集成",
+    signinText: "用 GitHub 或 Google 账号登录，查看你发布的集成、审核状态和各个版本。Casdoor 云的账号也可以直接登录。",
+    signin: "登录",
+    signedInAs: "当前账号",
+    myIntegrations: "我的集成",
+    emptyTitle: "还没有集成",
+    emptyText: "在控制台上传集成的功能马上就来。在这之前，集成通过向 casdoor-integrations 提交 Pull Request 来投稿。",
+    howToSubmit: "怎么投稿",
+    versions: "版本",
+    view: "查看页面",
+    statuses: {
+      Published: "已发布",
+      Pending: "审核中",
+      Rejected: "未通过",
+      Revoked: "已撤回",
+    },
   },
 
   notFound: {

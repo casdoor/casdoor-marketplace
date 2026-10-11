@@ -54,6 +54,16 @@ func (c *ApiController) SetSessionUser(user *object.User) {
 	c.SetSession("user", string(data))
 }
 
+// RequireUser answers with an error unless someone is signed in.
+func (c *ApiController) RequireUser() (*object.User, bool) {
+	user := c.GetSessionUser()
+	if user == nil {
+		c.ResponseError("Please sign in first")
+		return nil, false
+	}
+	return user, true
+}
+
 // RequireAdmin answers with an error unless the admin user of the Casdoor organization is signed in.
 func (c *ApiController) RequireAdmin() (*object.User, bool) {
 	user := c.GetSessionUser()

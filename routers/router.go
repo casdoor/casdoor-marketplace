@@ -15,6 +15,7 @@ func init() {
 	beego.Router("/api/callback", &controllers.ApiController{}, "GET:Callback")
 	beego.Router("/api/signout", &controllers.ApiController{}, "POST:Signout")
 	beego.Router("/api/get-account", &controllers.ApiController{}, "GET:GetAccount")
+	beego.Router("/api/get-my-integrations", &controllers.ApiController{}, "GET:GetMyIntegrations")
 	beego.Router("/api/get-settings", &controllers.ApiController{}, "GET:GetSettings")
 	beego.Router("/api/update-settings", &controllers.ApiController{}, "POST:UpdateSettings")
 }

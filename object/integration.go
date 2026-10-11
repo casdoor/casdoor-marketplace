@@ -176,6 +176,54 @@ func GetIndex() (*Index, error) {
 	return index, nil
 }
 
+// OwnerIntegration is an integration with all of its versions, newest first, for its owner's console.
+type OwnerIntegration struct {
+	*Integration
+	Versions []*IntegrationVersion `json:"versions"`
+}
+
+// GetOwnerIntegrations returns the integrations of an owner ("<organization>/<name>") with their versions.
+func GetOwnerIntegrations(owner string) ([]*OwnerIntegration, error) {
+	var integrations []*Integration
+	err := engine.Where("owner = ?", owner).Find(&integrations)
+	if err != nil {
+		return nil, err
+	}
+	result := []*OwnerIntegration{}
+	if len(integrations) == 0 {
+		return result, nil
+	}
+
+	ids := []string{}
+	for _, i := range integrations {
+		ids = append(ids, i.Id)
+	}
+	var versions []*IntegrationVersion
+	err = engine.In("integration_id", ids).Desc("created_time").Find(&versions)
+	if err != nil {
+		return nil, err
+	}
+	byId := map[string][]*IntegrationVersion{}
+	for _, v := range versions {
+		byId[v.IntegrationId] = append(byId[v.IntegrationId], v)
+	}
+
+	for _, i := range integrations {
+		vs := byId[i.Id]
+		if vs == nil {
+			vs = []*IntegrationVersion{}
+		}
+		result = append(result, &OwnerIntegration{Integration: i, Versions: vs})
+	}
+	sort.SliceStable(result, func(a, b int) bool {
+		if typeOrder[result[a].Type] != typeOrder[result[b].Type] {
+			return typeOrder[result[a].Type] < typeOrder[result[b].Type]
+		}
+		return result[a].Id < result[b].Id
+	})
+	return result, nil
+}
+
 // GetIntegrationFile returns a file of a published or revoked version (instances that installed a revoked version
 // still need to read it), or nil.
 func GetIntegrationFile(id string, version string, path string) (*IntegrationFile, error) {

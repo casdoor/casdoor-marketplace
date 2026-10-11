@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { BookOpen, Plus } from "lucide-react";
+import { AccountMenu } from "@/components/account-menu";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { buttonVariants } from "@/components/ui/button";
 import { getMessages, localePath, type Locale } from "@/lib/i18n";
@@ -50,14 +51,15 @@ export function SiteHeader({ lang }: { lang: Locale }) {
           <a
             href={links.integrations}
             aria-label="GitHub"
-            className="rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            className="hidden rounded-md p-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground sm:block"
           >
             <GitHubIcon className="size-5" />
           </a>
-          <a href={links.contribute} className={buttonVariants({ size: "sm", className: "ml-2" })}>
+          <a href={links.contribute} className={buttonVariants({ size: "sm", className: "ml-2 hidden sm:inline-flex" })}>
             <Plus />
             {m.header.submit}
           </a>
+          <AccountMenu lang={lang} />
         </div>
       </div>
       <nav className="flex gap-1 overflow-x-auto border-t px-2 py-1.5 text-sm md:hidden">

@@ -117,7 +117,7 @@ export function AdminConsole() {
             <p className="text-sm text-muted-foreground">The admin console is for the site&apos;s admin account.</p>
             {/* the backend redirects to Casdoor, so this is a full page load */}
             {/* eslint-disable-next-line @next/next/no-html-link-for-pages */}
-            <a href="/api/signin" className={buttonVariants()}>
+            <a href="/api/signin?redirect=%2Fadmin%2F" className={buttonVariants()}>
               Sign in with Casdoor
             </a>
           </div>
