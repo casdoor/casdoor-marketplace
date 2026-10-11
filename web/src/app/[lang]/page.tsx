@@ -9,7 +9,8 @@ import { TypeIcon } from "@/components/type-icon";
 import { buttonVariants } from "@/components/ui/button";
 import { toCatalogItems } from "@/lib/catalog";
 import { getIntegrations } from "@/lib/integrations";
-import { getMessages, isLocale, languageAlternates, localePath, pageUrl, type Locale } from "@/lib/i18n";
+import { getMessages, htmlLangs, isLocale, localePath, pageUrl, type Locale } from "@/lib/i18n";
+import { jsonLd, pageMetadata } from "@/lib/metadata";
 import { collections, docsUrl, featuredIds, links } from "@/lib/site";
 
 export async function generateMetadata({ params }: PageProps<"/[lang]">): Promise<Metadata> {
@@ -18,11 +19,7 @@ export async function generateMetadata({ params }: PageProps<"/[lang]">): Promis
     return {};
   }
   const m = getMessages(lang);
-  return {
-    title: { absolute: m.home.title },
-    description: m.home.description,
-    alternates: { canonical: pageUrl(lang, "/"), languages: languageAlternates("/") },
-  };
+  return pageMetadata(lang, "/", m.home.title, m.home.description, { path: "/og/home.png" });
 }
 
 export default async function Home({ params }: PageProps<"/[lang]">) {
@@ -35,8 +32,29 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
     .slice(0, 3);
   const withLogos = integrations.filter((i) => i.logo).slice(0, 12);
 
+  const graph = [
+    {
+      "@type": "WebSite",
+      name: m.siteName,
+      description: m.home.description,
+      url: pageUrl(lang, "/"),
+      inLanguage: htmlLangs[lang],
+      publisher: { "@type": "Organization", name: "Casdoor", url: "https://www.casdoor.com", logo: pageUrl("en", "/favicon.png") },
+    },
+    {
+      "@type": "ItemList",
+      itemListElement: collections.map((c, i) => ({
+        "@type": "ListItem",
+        position: i + 1,
+        name: m.collections[c.type].title,
+        url: pageUrl(lang, `/${c.slug}/`),
+      })),
+    },
+  ];
+
   return (
     <SearchProvider>
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: jsonLd(graph) }} />
       <section className="hero-backdrop relative overflow-hidden text-white">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-7 px-4 pt-20 pb-16 text-center sm:px-6 sm:pt-24">
           <span className="flex items-center gap-1.5 rounded-full border border-white/15 bg-white/5 px-3 py-1 text-xs font-medium text-white/80">

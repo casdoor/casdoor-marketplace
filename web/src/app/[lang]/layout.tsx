@@ -35,7 +35,13 @@ export async function generateMetadata({ params }: LayoutProps<"/[lang]">): Prom
       template: `%s | ${m.siteName}`,
     },
     description: m.siteDescription,
-    icons: { icon: "/favicon.png" },
+    icons: {
+      icon: [
+        { url: "/favicon.ico", sizes: "48x48" },
+        { url: "/favicon.png", type: "image/png", sizes: "256x256" },
+      ],
+      apple: "/favicon.png",
+    },
   };
 }
 

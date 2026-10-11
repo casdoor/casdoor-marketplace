@@ -13,8 +13,8 @@ import { buttonVariants } from "@/components/ui/button";
 import {
   formatMonth,
   getMessages,
+  htmlLangs,
   isLocale,
-  languageAlternates,
   localePath,
   pageUrl,
   translateCategory,
@@ -22,7 +22,9 @@ import {
   type Locale,
 } from "@/lib/i18n";
 import { getBundle, getIntegration, getIntegrations } from "@/lib/integrations";
+import { breadcrumbList, jsonLd, pageMetadata, type ShareImage } from "@/lib/metadata";
 import { docsUrl, getCollection, links } from "@/lib/site";
+import type { Integration } from "@/lib/types";
 import { exampleValues, fillVariables } from "@/lib/variables";
 
 // The site is a static export: every integration is a page built from the index, nothing else exists.
@@ -31,6 +33,12 @@ export const dynamicParams = false;
 export async function generateStaticParams() {
   const integrations = await getIntegrations();
   return integrations.map((i) => ({ id: i.id }));
+}
+
+// Themes are shared with their screenshot (1280x800), everything else with its image from /og/integrations/.
+function shareImageOf(integration: Integration): ShareImage {
+  const screenshot = integration.type === "theme" ? integration.screenshots?.[0] : undefined;
+  return screenshot ? { path: `/data/${screenshot}`, width: 1280, height: 800 } : { path: `/og/integrations/${integration.id}.png` };
 }
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/integrations/[id]">): Promise<Metadata> {
@@ -43,17 +51,14 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/integratio
   const m = getMessages(lang);
   const guide = (await getBundle(integration)).files["guide.json"];
   const name = integration.name.en;
-  const title =
+  const title = m.integration.pageTitle(
+    integration.type,
+    name,
     guide?.title ??
-    (integration.type === "theme" ? m.integration.themeTitle(name) : m.integration.title(name, m.typeLabels[integration.type]));
-  const description = integration.description.en;
-  const path = `/integrations/${integration.id}/`;
-  return {
-    title: { absolute: title },
-    description,
-    alternates: { canonical: pageUrl(lang, path), languages: languageAlternates(path) },
-    openGraph: { title, description, url: pageUrl(lang, path) },
-  };
+      (integration.type === "theme" ? m.integration.themeTitle(name) : m.integration.title(name, m.typeLabels[integration.type]))
+  );
+  const description = m.integration.pageDescription(integration.type, name, integration.description.en);
+  return pageMetadata(lang, `/integrations/${integration.id}/`, title, description, shareImageOf(integration));
 }
 
 export default async function IntegrationPage({ params }: PageProps<"/[lang]/integrations/[id]">) {
@@ -74,6 +79,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
   const values = exampleValues(manifest);
   const name = integration.name.en;
   const description = integration.description.en;
+  const url = pageUrl(lang, `/integrations/${integration.id}/`);
   const typeLabel = m.typeLabels[integration.type];
   const collection = getCollection(integration.type);
   const collectionTitle = collection ? m.collections[collection.type].title : "";
@@ -85,11 +91,12 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
     {
       "@type": "SoftwareApplication",
       name: t.structuredName(name, typeLabel),
-      description,
-      inLanguage: lang,
+      description: t.pageDescription(integration.type, name, description),
+      inLanguage: htmlLangs[lang],
       applicationCategory: "SecurityApplication",
       softwareVersion: integration.latest,
-      url: pageUrl(lang, `/integrations/${integration.id}/`),
+      url,
+      image: pageUrl("en", shareImageOf(integration).path),
       author: { "@type": "Organization", name: integration.author },
       offers: { "@type": "Offer", price: 0, priceCurrency: "USD" },
     },
@@ -104,6 +111,14 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
       })),
     });
   }
+
+  graph.push(
+    breadcrumbList([
+      { name: m.siteName, url: pageUrl(lang, "/") },
+      ...(collection ? [{ name: collectionTitle, url: pageUrl(lang, `/${collection.slug}/`) }] : []),
+      { name, url },
+    ])
+  );
 
   const details = [
     {
@@ -128,7 +143,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
     <>
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify({ "@context": "https://schema.org", "@graph": graph }) }}
+        dangerouslySetInnerHTML={{ __html: jsonLd(graph) }}
       />
 
       <section className="border-b bg-gradient-to-b from-accent/70 via-accent/20 to-background">
@@ -160,7 +175,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
                 {m.separator}
                 {typeLabel}
               </p>
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{guide?.headline ?? name}</h1>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{t.headline(integration.type, name, guide?.headline ?? name)}</h1>
               <p className="max-w-3xl text-lg leading-8 text-muted-foreground">{guide?.summary ?? description}</p>
               <div className="flex flex-wrap items-center gap-2">
                 {integration.verified && (

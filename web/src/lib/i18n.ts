@@ -163,6 +163,11 @@ const en = {
   integration: {
     themeTitle: (name: string) => `${name}: a Sign-in Page Theme for Casdoor`,
     title: (name: string, type: string) => `${name} ${type} | Casdoor`,
+    // integrations are written in English only: English pages use the title, description and headline the integration
+    // has, the other languages build theirs from its name
+    pageTitle: (_type: IntegrationType, _name: string, title: string) => title,
+    pageDescription: (_type: IntegrationType, _name: string, description: string) => description,
+    headline: (_type: IntegrationType, _name: string, headline: string) => headline,
     structuredName: (name: string, type: string) => `${name} ${type} for Casdoor`,
     verified: "Verified by Casdoor",
     verifiedShort: "Verified",
@@ -439,6 +444,22 @@ const zh: Messages = {
   integration: {
     themeTitle: (name: string) => `${name}：Casdoor 登录页主题`,
     title: (name: string, type: string) => `${name} ${type} | Casdoor`,
+    pageTitle: (type: IntegrationType, name: string, title: string) =>
+      type === "app"
+        ? `${name} 单点登录：用 Casdoor 接入的配置指南`
+        : type === "provider"
+          ? `用 ${name} 账号登录 Casdoor：身份提供商配置指南`
+          : title,
+    pageDescription: (type: IntegrationType, name: string, description: string) =>
+      type === "app"
+        ? `用 Casdoor 给 ${name} 配置单点登录的分步指南：在 Casdoor 里建什么应用、${name} 那边怎么填，以及常见问题。`
+        : type === "provider"
+          ? `把 ${name} 加为 Casdoor 的身份提供商：端点和字段映射都已填好，附在 ${name} 那边注册 Casdoor 的步骤和常见问题。`
+          : type === "theme"
+            ? `${name} 是一款 Casdoor 登录页主题：先看效果、调好颜色，再在应用编辑页用“导入JSON”一键套用。`
+            : description,
+    headline: (type: IntegrationType, name: string, headline: string) =>
+      type === "app" ? `${name} 单点登录` : type === "provider" ? `用 ${name} 登录 Casdoor` : headline,
     structuredName: (name: string, type: string) => `Casdoor ${name} ${type}`,
     verified: "Casdoor 官方核验",
     verifiedShort: "已核验",
