@@ -102,6 +102,14 @@ func modifyFrontendResponse(resp *http.Response) error {
 	if strings.HasPrefix(contentType, "text/html") && !strings.HasPrefix(resp.Request.URL.Path, "/admin") {
 		data = injectAnalytics(data)
 	}
+	if frontendCdnUrl != "" {
+		if strings.HasPrefix(contentType, "text/html") {
+			rewriteLinkHeaderForCdn(resp.Header)
+			data = rewriteHtmlForCdn(data)
+		} else if strings.HasPrefix(contentType, "text/x-component") {
+			data = bytes.ReplaceAll(data, nextStaticPattern, cdnStaticPrefix())
+		}
+	}
 	if len(data) > 1024 && acceptsGzip(resp.Request.Header.Get("X-Accept-Encoding")) {
 		var buf bytes.Buffer
 		zw := gzip.NewWriter(&buf)

@@ -56,6 +56,7 @@ func StartFrontend(port int, backendPort int) {
 		return
 	}
 
+	loadFrontendCdnUrl(frontendDir)
 	err := util.StopOldInstance(port)
 	if err != nil {
 		logs.Warn("StopOldInstance(%d): %v", port, err)
