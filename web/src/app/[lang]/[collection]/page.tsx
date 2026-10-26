@@ -34,7 +34,7 @@ export default async function CollectionPage({ params }: PageProps<"/[lang]/[col
   }
   const m = getMessages(lang);
   const text = m.collections[c.type];
-  const integrations = (await getIntegrations()).filter((i) => i.type === c.type);
+  const integrations = (await getIntegrations(lang)).filter((i) => i.type === c.type);
 
   const url = pageUrl(lang, `/${c.slug}/`);
   const graph = [

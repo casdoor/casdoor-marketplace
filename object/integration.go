@@ -23,6 +23,7 @@ type Integration struct {
 	Screenshots         []string `xorm:"mediumtext json" json:"screenshots"`
 	Verified            bool     `json:"verified"`
 	RequiresGlobalAdmin bool     `json:"requiresGlobalAdmin"`
+	Region              string   `xorm:"varchar(20)" json:"region"`
 	Latest              string   `xorm:"varchar(50)" json:"latest"`
 	CreatedTime         string   `xorm:"varchar(100)" json:"createdTime"`
 	UpdatedTime         string   `xorm:"varchar(100)" json:"updatedTime"`
@@ -83,6 +84,7 @@ type indexIntegration struct {
 	Screenshots         []string       `json:"screenshots,omitempty"`
 	Verified            bool           `json:"verified"`
 	RequiresGlobalAdmin bool           `json:"requiresGlobalAdmin,omitempty"`
+	Region              string         `json:"region,omitempty"`
 	Latest              string         `json:"latest"`
 	Versions            []indexVersion `json:"versions"`
 }
@@ -140,6 +142,7 @@ func GetIndex() (*Index, error) {
 			Screenshots:         i.Screenshots,
 			Verified:            i.Verified,
 			RequiresGlobalAdmin: i.RequiresGlobalAdmin,
+			Region:              i.Region,
 			Latest:              i.Latest,
 			Versions:            []indexVersion{},
 		}

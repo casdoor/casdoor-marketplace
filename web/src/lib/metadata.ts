@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { getMessages, languageAlternates, pageUrl, siteUrls, type Locale } from "@/lib/i18n";
+import { getMessages, languageAlternates, locales, pageUrl, siteUrls, type Locale } from "@/lib/i18n";
 
 const ogLocales: Record<Locale, string> = { en: "en_US", zh: "zh_CN" };
 
@@ -8,13 +8,20 @@ export type ShareImage = { path: string; width?: number; height?: number };
 
 // Title, description, canonical, hreflang and the Open Graph and Twitter tags of the page at `path` (the English
 // address). A page's `openGraph` replaces the layout's rather than merging with it, so every page builds all of it here.
-export function pageMetadata(lang: Locale, path: string, title: string, description: string, image: ShareImage): Metadata {
+export function pageMetadata(
+  lang: Locale,
+  path: string,
+  title: string,
+  description: string,
+  image: ShareImage,
+  langs: readonly Locale[] = locales
+): Metadata {
   const url = pageUrl(lang, path);
   const images = [{ url: `${siteUrls[lang]}${image.path}`, width: image.width ?? 1200, height: image.height ?? 630, alt: title }];
   return {
     title: { absolute: title },
     description,
-    alternates: { canonical: url, languages: languageAlternates(path) },
+    alternates: { canonical: url, languages: languageAlternates(path, langs) },
     openGraph: {
       type: "website",
       siteName: getMessages(lang).siteName,

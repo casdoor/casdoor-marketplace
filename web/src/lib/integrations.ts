@@ -1,3 +1,4 @@
+import type { Locale } from "@/lib/i18n";
 import type { Bundle, Integration, IntegrationIndex } from "@/lib/types";
 
 // The Go backend serves the catalog from the database under /data (index.json and the files of every version); it
@@ -26,14 +27,20 @@ export async function getIndex(): Promise<IntegrationIndex> {
   return readJson("index.json");
 }
 
-export async function getIntegrations(): Promise<Integration[]> {
-  const index = await getIndex();
-  const revoked = new Set(index.revoked.map((r) => `${r.id}@${r.version}`));
-  return index.integrations.filter((i) => !revoked.has(`${i.id}@${i.latest}`));
+// The languages an integration has pages in: one of the Chinese Marketplace only in Chinese.
+export function languagesOf(integration: Integration): Locale[] {
+  return integration.region === "cn" ? ["zh"] : ["en", "zh"];
 }
 
-export async function getIntegration(id: string): Promise<Integration | undefined> {
-  const integrations = await getIntegrations();
+// The integrations listed in `lang`, or all of them.
+export async function getIntegrations(lang?: Locale): Promise<Integration[]> {
+  const index = await getIndex();
+  const revoked = new Set(index.revoked.map((r) => `${r.id}@${r.version}`));
+  return index.integrations.filter((i) => !revoked.has(`${i.id}@${i.latest}`) && (!lang || languagesOf(i).includes(lang)));
+}
+
+export async function getIntegration(id: string, lang?: Locale): Promise<Integration | undefined> {
+  const integrations = await getIntegrations(lang);
   return integrations.find((i) => i.id === id);
 }
 

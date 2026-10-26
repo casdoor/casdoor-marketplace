@@ -21,7 +21,7 @@ import {
   translateTag,
   type Locale,
 } from "@/lib/i18n";
-import { getBundle, getIntegration, getIntegrations } from "@/lib/integrations";
+import { getBundle, getIntegration, getIntegrations, languagesOf } from "@/lib/integrations";
 import { breadcrumbList, jsonLd, pageMetadata, type ShareImage } from "@/lib/metadata";
 import { docsUrl, getCollection, links } from "@/lib/site";
 import type { Integration } from "@/lib/types";
@@ -38,8 +38,11 @@ function shareImageOf(integration: Integration): ShareImage {
 
 export async function generateMetadata({ params }: PageProps<"/[lang]/integrations/[id]">): Promise<Metadata> {
   const { lang, id } = await params;
-  const integration = await getIntegration(id);
-  if (!integration || !isLocale(lang)) {
+  if (!isLocale(lang)) {
+    return {};
+  }
+  const integration = await getIntegration(id, lang);
+  if (!integration) {
     return {};
   }
 
@@ -53,12 +56,12 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/integratio
       (integration.type === "theme" ? m.integration.themeTitle(name) : m.integration.title(name, m.typeLabels[integration.type]))
   );
   const description = m.integration.pageDescription(integration.type, name, integration.description.en);
-  return pageMetadata(lang, `/integrations/${integration.id}/`, title, description, shareImageOf(integration));
+  return pageMetadata(lang, `/integrations/${integration.id}/`, title, description, shareImageOf(integration), languagesOf(integration));
 }
 
 export default async function IntegrationPage({ params }: PageProps<"/[lang]/integrations/[id]">) {
   const { lang, id } = (await params) as { lang: Locale; id: string };
-  const integration = await getIntegration(id);
+  const integration = await getIntegration(id, lang);
   if (!integration) {
     notFound();
   }
@@ -80,7 +83,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
   const collectionTitle = collection ? m.collections[collection.type].title : "";
   const collectionHref = collection ? localePath(lang, `/${collection.slug}/`) : "";
   const sourceUrl = `${links.integrations}/tree/master/integrations/${integration.type}/${integration.id}`;
-  const related = (await getIntegrations()).filter((i) => i.id !== integration.id && i.type === integration.type).slice(0, 3);
+  const related = (await getIntegrations(lang)).filter((i) => i.id !== integration.id && i.type === integration.type).slice(0, 3);
 
   const graph: object[] = [
     {

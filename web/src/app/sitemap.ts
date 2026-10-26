@@ -1,6 +1,6 @@
 import type { MetadataRoute } from "next";
-import { htmlLangs, locales, pageUrl } from "@/lib/i18n";
-import { getIntegrations } from "@/lib/integrations";
+import { htmlLangs, locales, pageUrl, type Locale } from "@/lib/i18n";
+import { getIntegrations, languagesOf } from "@/lib/integrations";
 import { collections } from "@/lib/site";
 import type { Integration } from "@/lib/types";
 
@@ -11,9 +11,9 @@ type Entry = Omit<MetadataRoute.Sitemap[number], "url">;
 
 // Every page once per language at its canonical host, each listing all its languages as alternates. The same file is
 // served on both hosts and robots.txt names both, which lets each host's sitemap list the other host's pages.
-function localized(path: string, entry: Entry): MetadataRoute.Sitemap {
-  const languages = Object.fromEntries(locales.map((l) => [htmlLangs[l], pageUrl(l, path)]));
-  return locales.map((lang) => ({ url: pageUrl(lang, path), alternates: { languages }, ...entry }));
+function localized(path: string, entry: Entry, langs: readonly Locale[] = locales): MetadataRoute.Sitemap {
+  const languages = Object.fromEntries(langs.map((l) => [htmlLangs[l], pageUrl(l, path)]));
+  return langs.map((lang) => ({ url: pageUrl(lang, path), alternates: { languages }, ...entry }));
 }
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
@@ -34,11 +34,15 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       })
     ),
     ...integrations.flatMap((i) =>
-      localized(`/integrations/${i.id}/`, {
-        lastModified: published([i]),
-        changeFrequency: "monthly",
-        priority: 0.6,
-      })
+      localized(
+        `/integrations/${i.id}/`,
+        {
+          lastModified: published([i]),
+          changeFrequency: "monthly",
+          priority: 0.6,
+        },
+        languagesOf(i)
+      )
     ),
   ];
 }

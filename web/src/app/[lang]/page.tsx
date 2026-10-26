@@ -28,7 +28,7 @@ export async function generateMetadata({ params }: PageProps<"/[lang]">): Promis
 export default async function Home({ params }: PageProps<"/[lang]">) {
   const { lang } = (await params) as { lang: Locale };
   const m = getMessages(lang);
-  const integrations = await getIntegrations();
+  const integrations = await getIntegrations(lang);
   const featured = featuredIds
     .map((id) => integrations.find((i) => i.id === id))
     .filter((i) => i !== undefined)

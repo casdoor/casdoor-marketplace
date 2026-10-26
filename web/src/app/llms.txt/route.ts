@@ -8,7 +8,7 @@ export const dynamic = "force-dynamic";
 // https://llmstxt.org: the pages of the site as a Markdown list, for language models.
 export async function GET() {
   const m = getMessages("en");
-  const integrations = await getIntegrations();
+  const integrations = await getIntegrations("en");
   const lines = [
     `# ${m.siteName}`,
     "",

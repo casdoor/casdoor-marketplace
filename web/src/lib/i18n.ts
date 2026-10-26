@@ -29,10 +29,10 @@ export function pageUrl(lang: Locale, path: string): string {
 }
 
 // hreflang alternates for the metadata of a page at `path` (the English address).
-export function languageAlternates(path: string): Record<string, string> {
+export function languageAlternates(path: string, langs: readonly Locale[] = locales): Record<string, string> {
   return {
-    ...Object.fromEntries(locales.map((l) => [htmlLangs[l], pageUrl(l, path)])),
-    "x-default": pageUrl(defaultLocale, path),
+    ...Object.fromEntries(langs.map((l) => [htmlLangs[l], pageUrl(l, path)])),
+    "x-default": pageUrl(langs.includes(defaultLocale) ? defaultLocale : langs[0], path),
   };
 }
 
@@ -371,6 +371,7 @@ const zh: Messages = {
     "Group sync": "群组同步",
     "Auto provisioning": "自动开通账号",
     "Self-hosted": "自托管",
+    Education: "教育",
     "Cloud or self-hosted": "云服务或自托管",
     Dark: "深色",
     Light: "浅色",
@@ -630,6 +631,19 @@ const zh: Messages = {
     home: "返回集成市场",
   },
 };
+
+// The Chinese strings put spaces around an integration's name, which suits Latin names only: a Chinese one, such as
+// 超星学习通 in the Chinese Marketplace, gets none.
+const cjk = "\u3000-\u303f\u4e00-\u9fff\uff00-\uffef";
+const cjkGap = new RegExp(`([${cjk}]) +(?=[${cjk}])`, "g");
+for (const [key, value] of Object.entries(zh.integration)) {
+  if (typeof value === "function") {
+    (zh.integration as Record<string, unknown>)[key] = (...args: unknown[]) => {
+      const text = (value as (...args: unknown[]) => unknown)(...args);
+      return typeof text === "string" ? text.replace(cjkGap, "$1") : text;
+    };
+  }
+}
 
 const messages: Record<Locale, Messages> = { en, zh };
 

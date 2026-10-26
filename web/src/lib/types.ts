@@ -28,6 +28,8 @@ export type Integration = {
   tags?: string[];
   screenshots?: string[];
   verified: boolean;
+  // "cn": only listed in Chinese, e.g. sign-in with a platform only used in China
+  region?: "cn";
   requiresGlobalAdmin?: boolean;
   latest: string;
   versions: IntegrationVersion[];
