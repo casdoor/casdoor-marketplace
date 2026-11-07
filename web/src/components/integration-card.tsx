@@ -4,10 +4,13 @@ import { IntegrationLogo } from "@/components/integration-logo";
 import { TypeIcon } from "@/components/type-icon";
 import { getMessages, localePath, translateTag, type Locale } from "@/lib/i18n";
 import { getAssetSrc } from "@/lib/integrations";
+import { getTypeLabel } from "@/lib/provider-categories";
+import { getCollection } from "@/lib/site";
 import type { Integration } from "@/lib/types";
 
 export async function IntegrationCard({ integration, lang }: { integration: Integration; lang: Locale }) {
   const m = getMessages(lang);
+  const typeLabel = await getTypeLabel(integration, lang);
   // every card has a banner of the same height: a theme's screenshot, or the logo on a soft gradient
   const screenshot = integration.screenshots?.[0] ? await getAssetSrc(integration.screenshots[0]) : undefined;
 
@@ -39,8 +42,8 @@ export async function IntegrationCard({ integration, lang }: { integration: Inte
             {integration.verified && <BadgeCheck className="size-4 shrink-0 text-primary" aria-label={m.integration.verifiedShort} />}
           </h3>
           <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-            <TypeIcon type={integration.type} className="size-3.5" />
-            {m.typeLabels[integration.type]}
+            <TypeIcon type={getCollection(integration.type)?.type ?? integration.type} className="size-3.5" />
+            {typeLabel}
           </span>
         </div>
         <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{integration.description.en}</p>

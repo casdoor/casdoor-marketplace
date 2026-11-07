@@ -46,19 +46,19 @@ export function formatMonth(month: string, lang: Locale): string {
 
 const en = {
   siteName: "Casdoor Marketplace",
-  siteDescription: "App integrations, identity providers and sign-in themes for Casdoor.",
+  siteDescription: "App integrations, providers and sign-in themes for Casdoor.",
   languageName: "English",
   separator: " · ",
 
   typeLabels: {
     app: "App integration",
-    provider: "Identity provider",
+    provider: "Provider",
     theme: "Sign-in theme",
     action: "Action",
   } as Record<IntegrationType, string>,
   typePlurals: {
     app: "App integrations",
-    provider: "Identity providers",
+    provider: "Providers",
     theme: "Sign-in themes",
     action: "Actions",
   } as Record<IntegrationType, string>,
@@ -71,10 +71,10 @@ const en = {
         "Step-by-step single sign-on for self-hosted apps: the Casdoor application to create and the settings on the app's side, down to group and role mapping.",
     },
     provider: {
-      title: "Identity providers",
-      tagline: "Sign in with accounts people already have",
+      title: "Providers",
+      tagline: "Sign-in, SMS, payments and more",
       description:
-        "Ready-made sign-in providers for Casdoor: the endpoints and claims are filled in, and the guide covers registering Casdoor on the other side.",
+        "Providers for Casdoor, by Casdoor's provider categories: sign-in providers with the endpoints and claims filled in, and SMS and payment providers that run inside Casdoor as sandboxed plugins.",
     },
     theme: {
       title: "Sign-in themes",
@@ -83,6 +83,17 @@ const en = {
         "Looks for Casdoor's sign-in pages, tested on a real Casdoor. Pick your colors and apply them with Import JSON in the application editor.",
     },
   } as Record<string, { title: string; tagline: string; description: string }>,
+
+  // Casdoor's provider categories, by their names in Casdoor; other languages map them here
+  providerCategories: {} as Record<string, string>,
+  providerLabel: (category: string) => `${category} provider`,
+  providerCollection: {
+    title: (category: string) => `${category} providers`,
+    description: (category: string) =>
+      `${category} providers for Casdoor: install them from the Marketplace page of the Casdoor console, or set them up by hand with the guide on each page.`,
+    searchPlaceholder: (category: string) => `Search ${category} providers...`,
+    all: "All",
+  },
 
   // categories and tags come from the integrations in English; other languages map them here
   categories: {} as Record<string, string>,
@@ -118,13 +129,13 @@ const en = {
   },
 
   home: {
-    title: "Casdoor Marketplace: App Integrations, Identity Providers and Themes",
+    title: "Casdoor Marketplace: App Integrations, Providers and Themes",
     description:
-      "Integrations for Casdoor: single sign-on guides for Grafana, GitLab, Nextcloud and other self-hosted apps, ready-made identity providers such as Keycloak and authentik, and sign-in page themes.",
+      "Integrations for Casdoor: single sign-on guides for Grafana, GitLab, Nextcloud and other self-hosted apps, ready-made providers such as Keycloak and authentik for sign-in and Vonage for SMS, and sign-in page themes.",
     badge: "Open source, tested on a real Casdoor",
     titleBefore: "Everything that plugs into ",
     titleAfter: "",
-    text: "Single sign-on for the apps you run, identity providers your users already have accounts with, and themes for your sign-in pages.",
+    text: "Single sign-on for the apps you run, providers for sign-in, SMS and payments, and themes for your sign-in pages.",
     searchPlaceholder: "Search Grafana, Keycloak, dark themes...",
     integrations: "integrations",
     categories: "categories",
@@ -315,21 +326,26 @@ const en = {
 
 export type Messages = typeof en;
 
+// a word set among Chinese text, with a space on each side that touches a Latin letter, such as " OAuth "
+function spaced(word: string): string {
+  return `${/^[A-Za-z]/.test(word) ? " " : ""}${word}${/[A-Za-z]$/.test(word) ? " " : ""}`;
+}
+
 const zh: Messages = {
   siteName: "Casdoor 集成市场",
-  siteDescription: "Casdoor 的应用集成、身份提供商和登录主题。",
+  siteDescription: "Casdoor 的应用集成、提供商和登录主题。",
   languageName: "中文",
   separator: " | ",
 
   typeLabels: {
     app: "应用集成",
-    provider: "身份提供商",
+    provider: "提供商",
     theme: "登录主题",
     action: "动作",
   },
   typePlurals: {
     app: "应用集成",
-    provider: "身份提供商",
+    provider: "提供商",
     theme: "登录主题",
     action: "动作",
   },
@@ -342,9 +358,10 @@ const zh: Messages = {
         "自托管应用接入单点登录的分步指南：在 Casdoor 里建什么应用、应用那边怎么配置，一直到群组和角色映射。",
     },
     provider: {
-      title: "身份提供商",
-      tagline: "用户直接用已有的账号登录",
-      description: "现成的 Casdoor 登录提供商：端点和字段映射都已填好，指南里写了怎么在对方那边注册 Casdoor。",
+      title: "提供商",
+      tagline: "登录、短信、支付等各类提供商",
+      description:
+        "按 Casdoor 的提供商分类整理：端点和字段映射都已填好的登录提供商，以及在 Casdoor 沙箱里运行的短信、支付等插件。",
     },
     theme: {
       title: "登录主题",
@@ -352,6 +369,29 @@ const zh: Messages = {
       description:
         "Casdoor 登录页的外观，都在真实的 Casdoor 上测过。选好颜色，在应用编辑页用“导入JSON”一键套用。",
     },
+  },
+
+  providerCategories: {
+    Audit: "审计",
+    Captcha: "验证码",
+    Email: "邮件",
+    "Face ID": "人脸识别",
+    "ID Verification": "实名认证",
+    Log: "日志",
+    MFA: "多因素认证",
+    Notification: "通知",
+    Payment: "支付",
+    Scan: "扫描",
+    SMS: "短信",
+    Storage: "存储",
+  },
+  providerLabel: (category: string) => `${spaced(category)}提供商`.trimStart(),
+  providerCollection: {
+    title: (category: string) => `${spaced(category)}提供商`.trimStart(),
+    description: (category: string) =>
+      `Casdoor 的${spaced(category)}提供商：可以在 Casdoor 控制台的集成市场页一键安装，也可以照每页的指南手动配置。`,
+    searchPlaceholder: (category: string) => `搜索${spaced(category)}提供商...`,
+    all: "全部",
   },
 
   categories: {
@@ -430,13 +470,13 @@ const zh: Messages = {
   },
 
   home: {
-    title: "Casdoor 集成市场：应用集成、身份提供商与登录主题",
+    title: "Casdoor 集成市场：应用集成、提供商与登录主题",
     description:
-      "Casdoor 的集成：Grafana、GitLab、Nextcloud 等自托管应用的单点登录指南，Keycloak、authentik 等现成的身份提供商，以及登录页主题。",
+      "Casdoor 的集成：Grafana、GitLab、Nextcloud 等自托管应用的单点登录指南，Keycloak、authentik 等登录提供商和 Vonage 短信提供商，以及登录页主题。",
     badge: "开源，在真实的 Casdoor 上测试过",
     titleBefore: "让 ",
     titleAfter: " 连接一切",
-    text: "给你自己部署的应用接上单点登录，让用户用已有的账号登录，再给登录页换上你喜欢的主题。",
+    text: "给你自己部署的应用接上单点登录，接入登录、短信、支付等提供商，再给登录页换上你喜欢的主题。",
     searchPlaceholder: "搜索 Grafana、Keycloak、深色主题...",
     integrations: "个集成",
     categories: "个分类",
@@ -482,13 +522,13 @@ const zh: Messages = {
       type === "app"
         ? `${name} 单点登录：用 Casdoor 接入的配置指南`
         : type === "provider"
-          ? `用 ${name} 账号登录 Casdoor：身份提供商配置指南`
+          ? `用 ${name} 账号登录 Casdoor：登录提供商配置指南`
           : title,
     pageDescription: (type: IntegrationType, name: string, description: string) =>
       type === "app"
         ? `用 Casdoor 给 ${name} 配置单点登录的分步指南：在 Casdoor 里建什么应用、${name} 那边怎么填，以及常见问题。`
         : type === "provider"
-          ? `把 ${name} 加为 Casdoor 的身份提供商：端点和字段映射都已填好，附在 ${name} 那边注册 Casdoor 的步骤和常见问题。`
+          ? `把 ${name} 加为 Casdoor 的登录提供商：端点和字段映射都已填好，附在 ${name} 那边注册 Casdoor 的步骤和常见问题。`
           : type === "theme"
             ? `${name} 是一款 Casdoor 登录页主题：先看效果、调好颜色，再在应用编辑页用“导入JSON”一键套用。`
             : description,
@@ -657,4 +697,8 @@ export function translateCategory(category: string, lang: Locale): string {
 
 export function translateTag(tag: string, lang: Locale): string {
   return messages[lang].tags[tag] ?? tag;
+}
+
+export function translateProviderCategory(category: string, lang: Locale): string {
+  return messages[lang].providerCategories[category] ?? category;
 }

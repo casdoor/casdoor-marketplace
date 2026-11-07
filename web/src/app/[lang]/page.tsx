@@ -103,7 +103,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
       <section className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
         <div className="grid gap-4 md:grid-cols-3">
           {collections.map((c) => {
-            const n = integrations.filter((i) => i.type === c.type).length;
+            const n = integrations.filter((i) => c.types.includes(i.type)).length;
             return (
               <Link
                 key={c.slug}
@@ -149,7 +149,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
       <section id="browse" className="scroll-mt-20 border-t bg-muted/30">
         <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6">
           <h2 className="mb-6 text-2xl font-semibold tracking-tight">{m.home.all}</h2>
-          <CatalogBrowser items={toCatalogItems(integrations, lang)} lang={lang} />
+          <CatalogBrowser items={await toCatalogItems(integrations, lang)} lang={lang} />
         </div>
       </section>
 

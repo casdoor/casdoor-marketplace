@@ -3,18 +3,21 @@ import type { IntegrationType } from "@/lib/types";
 
 export type Collection = {
   slug: string;
+  // names the collection's texts in lib/i18n.ts and its icon
   type: IntegrationType;
+  // the integration types it lists: an action is a provider whose code runs in Casdoor
+  types: IntegrationType[];
 };
 
-// Each type has its own browse page at /<slug>/; the titles and texts are in lib/i18n.ts.
+// Each collection has its own browse page at /<slug>/; the titles and texts are in lib/i18n.ts.
 export const collections: Collection[] = [
-  { slug: "apps", type: "app" },
-  { slug: "providers", type: "provider" },
-  { slug: "themes", type: "theme" },
+  { slug: "apps", type: "app", types: ["app"] },
+  { slug: "providers", type: "provider", types: ["provider", "action"] },
+  { slug: "themes", type: "theme", types: ["theme"] },
 ];
 
 export function getCollection(type: IntegrationType): Collection | undefined {
-  return collections.find((c) => c.type === type);
+  return collections.find((c) => c.types.includes(type));
 }
 
 // Shown first on the home page and in the default sort.

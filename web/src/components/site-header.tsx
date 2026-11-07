@@ -1,9 +1,11 @@
 import Link from "next/link";
-import { BookOpen, Plus } from "lucide-react";
+import { BookOpen, ChevronDown, Plus } from "lucide-react";
 import { AccountMenu } from "@/components/account-menu";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { buttonVariants } from "@/components/ui/button";
-import { getMessages, localePath, type Locale } from "@/lib/i18n";
+import { getMessages, localePath, translateProviderCategory, type Locale } from "@/lib/i18n";
+import { getIntegrations } from "@/lib/integrations";
+import { countProviderCategories } from "@/lib/provider-categories";
 import { collections, docsUrl, links } from "@/lib/site";
 
 function GitHubIcon(props: React.SVGProps<SVGSVGElement>) {
@@ -16,8 +18,14 @@ function GitHubIcon(props: React.SVGProps<SVGSVGElement>) {
 
 export { GitHubIcon };
 
-export function SiteHeader({ lang }: { lang: Locale }) {
+export async function SiteHeader({ lang }: { lang: Locale }) {
   const m = getMessages(lang);
+  // the Casdoor categories that have providers, each a page of its own under Providers; without the catalog, such as on
+  // pages that do not need it while the backend is down, Providers is a plain link
+  const providerCategories = await getIntegrations(lang)
+    .then((integrations) => countProviderCategories(integrations.filter((i) => i.type === "provider" || i.type === "action")))
+    .catch(() => []);
+  const linkClass = "rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground";
   return (
     <header className="sticky top-0 z-40 border-b bg-background/80 backdrop-blur supports-[backdrop-filter]:bg-background/70">
       <div className="mx-auto flex h-16 max-w-7xl items-center gap-6 px-4 sm:px-6">
@@ -29,15 +37,34 @@ export function SiteHeader({ lang }: { lang: Locale }) {
           </span>
         </Link>
         <nav className="hidden items-center gap-1 text-sm md:flex">
-          {collections.map((c) => (
-            <Link
-              key={c.slug}
-              href={localePath(lang, `/${c.slug}/`)}
-              className="rounded-md px-3 py-2 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-            >
-              {m.collections[c.type].title}
-            </Link>
-          ))}
+          {collections.map((c) =>
+            c.type === "provider" && providerCategories.length > 0 ? (
+              <div key={c.slug} className="group relative">
+                <Link href={localePath(lang, `/${c.slug}/`)} className={`flex items-center gap-1 ${linkClass}`}>
+                  {m.collections[c.type].title}
+                  <ChevronDown className="size-3.5 transition-transform group-focus-within:rotate-180 group-hover:rotate-180" />
+                </Link>
+                <div className="invisible absolute top-full left-0 pt-1 opacity-0 transition-opacity group-focus-within:visible group-focus-within:opacity-100 group-hover:visible group-hover:opacity-100">
+                  <div className="flex min-w-48 flex-col rounded-lg border bg-popover p-1 shadow-lg">
+                    {providerCategories.map(({ category, count }) => (
+                      <Link
+                        key={category.slug}
+                        href={localePath(lang, `/${c.slug}/${category.slug}/`)}
+                        className="flex items-center justify-between gap-4 rounded-md px-3 py-2 text-popover-foreground hover:bg-muted"
+                      >
+                        {m.providerCollection.title(translateProviderCategory(category.name, lang))}
+                        <span className="text-xs text-muted-foreground tabular-nums">{count}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <Link key={c.slug} href={localePath(lang, `/${c.slug}/`)} className={linkClass}>
+                {m.collections[c.type].title}
+              </Link>
+            )
+          )}
         </nav>
         <div className="ml-auto flex items-center gap-1">
           <LanguageSwitcher lang={lang} />

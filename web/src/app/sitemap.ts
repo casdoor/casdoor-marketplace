@@ -1,7 +1,8 @@
 import type { MetadataRoute } from "next";
 import { htmlLangs, locales, pageUrl, type Locale } from "@/lib/i18n";
 import { getIntegrations, languagesOf } from "@/lib/integrations";
-import { collections } from "@/lib/site";
+import { countProviderCategories } from "@/lib/provider-categories";
+import { collections, getCollection } from "@/lib/site";
 import type { Integration } from "@/lib/types";
 
 // rendered for every request from the catalog in the database (the backend serves it under /data)
@@ -18,6 +19,9 @@ function localized(path: string, entry: Entry, langs: readonly Locale[] = locale
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   const integrations = await getIntegrations();
+  const providers = getCollection("provider");
+  const providerIntegrations = integrations.filter((i) => providers?.types.includes(i.type));
+  const providerCategories = await countProviderCategories(providerIntegrations);
   // when the newest of the integrations was published
   const published = (list: Integration[]) =>
     list
@@ -28,9 +32,16 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     ...localized("/", { lastModified: published(integrations), changeFrequency: "weekly", priority: 1 }),
     ...collections.flatMap((c) =>
       localized(`/${c.slug}/`, {
-        lastModified: published(integrations.filter((i) => i.type === c.type)),
+        lastModified: published(integrations.filter((i) => c.types.includes(i.type))),
         changeFrequency: "weekly",
         priority: 0.8,
+      })
+    ),
+    ...providerCategories.flatMap(({ category }) =>
+      localized(`/${providers?.slug}/${category.slug}/`, {
+        lastModified: published(providerIntegrations),
+        changeFrequency: "weekly",
+        priority: 0.7,
       })
     ),
     ...integrations.flatMap((i) =>

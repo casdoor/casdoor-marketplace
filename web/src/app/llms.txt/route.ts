@@ -20,7 +20,7 @@ export async function GET() {
   for (const c of collections) {
     const text = m.collections[c.type];
     lines.push("", `## ${text.title}`, "", `${text.description} All of them: ${pageUrl("en", `/${c.slug}/`)}`, "");
-    for (const i of integrations.filter((x) => x.type === c.type)) {
+    for (const i of integrations.filter((x) => c.types.includes(x.type))) {
       lines.push(`- [${i.name.en}](${pageUrl("en", `/integrations/${i.id}/`)}): ${i.description.en}`);
     }
   }

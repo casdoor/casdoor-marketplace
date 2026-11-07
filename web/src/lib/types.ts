@@ -89,6 +89,13 @@ export type ProviderTemplate = {
   userMapping?: Record<string, string>;
 };
 
+export type ActionFile = {
+  kind: string;
+  abi: number;
+  module: string;
+  sha256: string;
+};
+
 export type ThemeTemplate = {
   themeData: {
     themeType: string;
@@ -133,6 +140,7 @@ export type Bundle = {
     "application.json"?: ApplicationTemplate;
     "provider.json"?: ProviderTemplate;
     "theme.json"?: ThemeTemplate;
+    "action.json"?: ActionFile;
     "guide.json"?: Guide;
   };
 };

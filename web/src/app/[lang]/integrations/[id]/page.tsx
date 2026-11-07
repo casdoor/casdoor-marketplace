@@ -18,11 +18,13 @@ import {
   localePath,
   pageUrl,
   translateCategory,
+  translateProviderCategory,
   translateTag,
   type Locale,
 } from "@/lib/i18n";
 import { getBundle, getIntegration, getIntegrations, languagesOf } from "@/lib/integrations";
 import { breadcrumbList, jsonLd, pageMetadata, type ShareImage } from "@/lib/metadata";
+import { getProviderCategory, getProviderCategoryByName, getTypeLabel } from "@/lib/provider-categories";
 import { docsUrl, getCollection, links } from "@/lib/site";
 import type { Integration } from "@/lib/types";
 import { exampleValues, fillVariables } from "@/lib/variables";
@@ -53,7 +55,7 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/integratio
     integration.type,
     name,
     guide?.title ??
-      (integration.type === "theme" ? m.integration.themeTitle(name) : m.integration.title(name, m.typeLabels[integration.type]))
+      (integration.type === "theme" ? m.integration.themeTitle(name) : m.integration.title(name, await getTypeLabel(integration, lang)))
   );
   const description = m.integration.pageDescription(integration.type, name, integration.description.en);
   return pageMetadata(lang, `/integrations/${integration.id}/`, title, description, shareImageOf(integration), languagesOf(integration));
@@ -78,12 +80,20 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
   const name = integration.name.en;
   const description = integration.description.en;
   const url = pageUrl(lang, `/integrations/${integration.id}/`);
-  const typeLabel = m.typeLabels[integration.type];
+  const typeLabel = await getTypeLabel(integration, lang);
   const collection = getCollection(integration.type);
   const collectionTitle = collection ? m.collections[collection.type].title : "";
   const collectionHref = collection ? localePath(lang, `/${collection.slug}/`) : "";
+  // a provider also sits in its Casdoor category, such as /providers/sms/
+  const providerCategoryName = await getProviderCategory(integration);
+  const providerCategory = getProviderCategoryByName(providerCategoryName);
+  const categoryName = providerCategoryName ? translateProviderCategory(providerCategoryName, lang) : "";
+  const categoryPath = collection && providerCategory ? `/${collection.slug}/${providerCategory.slug}/` : "";
+  const typeHref = categoryPath ? localePath(lang, categoryPath) : collectionHref;
   const sourceUrl = `${links.integrations}/tree/master/integrations/${integration.type}/${integration.id}`;
-  const related = (await getIntegrations(lang)).filter((i) => i.id !== integration.id && i.type === integration.type).slice(0, 3);
+  const related = (await getIntegrations(lang))
+    .filter((i) => i.id !== integration.id && getCollection(i.type) === collection)
+    .slice(0, 3);
 
   const graph: object[] = [
     {
@@ -114,6 +124,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
     breadcrumbList([
       { name: m.siteName, url: pageUrl(lang, "/") },
       ...(collection ? [{ name: collectionTitle, url: pageUrl(lang, `/${collection.slug}/`) }] : []),
+      ...(categoryPath ? [{ name: categoryName, url: pageUrl(lang, categoryPath) }] : []),
       { name, url },
     ])
   );
@@ -122,14 +133,17 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
     {
       label: t.type,
       value: collection ? (
-        <Link href={collectionHref} className="text-primary hover:underline">
+        <Link href={typeHref} className="text-primary hover:underline">
           {typeLabel}
         </Link>
       ) : (
         typeLabel
       ),
     },
-    { label: t.category, value: integration.categories.map((c) => translateCategory(c, lang)).join(m.guide.sourcesSeparator) },
+    {
+      label: t.category,
+      value: categoryName || integration.categories.map((c) => translateCategory(c, lang)).join(m.guide.sourcesSeparator),
+    },
     { label: t.version, value: manifest.version },
     { label: t.casdoor, value: manifest.casdoorVersion },
     ...(guide ? [{ label: t.checked, value: formatMonth(guide.checkedOn, lang) }] : []),
@@ -159,6 +173,14 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
                 <ChevronRight className="size-4" />
               </>
             )}
+            {categoryPath && (
+              <>
+                <Link href={localePath(lang, categoryPath)} className="hover:text-foreground">
+                  {categoryName}
+                </Link>
+                <ChevronRight className="size-4" />
+              </>
+            )}
             <span className="text-foreground">{name}</span>
           </nav>
 
@@ -168,7 +190,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
             </div>
             <div className="flex min-w-0 flex-col gap-3">
               <p className="flex items-center gap-1.5 text-sm font-medium text-muted-foreground">
-                <TypeIcon type={integration.type} className="size-4" />
+                <TypeIcon type={collection?.type ?? integration.type} className="size-4" />
                 {name}
                 {m.separator}
                 {typeLabel}
