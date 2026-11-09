@@ -1,0 +1,1240 @@
+{
+  "argocd": {
+    "version": "1.0.0",
+    "name": "Argo CD",
+    "description": "用 OpenID Connect 把 Argo CD 接入 Casdoor：argocd-cm 里的 oidc.config、客户端密钥、PKCE、CLI 登录，以及按 Casdoor 群组分配 RBAC 权限。",
+    "variables": {
+      "appUrl": {
+        "label": "Argo CD 地址",
+        "description": "大家打开 Argo CD 用的地址，末尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Argo CD 单点登录：用 Casdoor 配置 OIDC 和 RBAC",
+      "headline": "Argo CD 单点登录",
+      "summary": "Argo CD 可以直接对接现有的 OpenID Connect 提供方，不需要它自带的 Dex。接入 Casdoor 后，大家用 Casdoor 账号登录 Argo CD 的网页界面和 CLI，能做什么由 Casdoor 群组决定。",
+      "redirectNote": "第二个 URL 给 CLI 的 `argocd login --sso` 用。",
+      "groupExample": "`argocd-admins`",
+      "steps": [
+        {
+          "title": "保存客户端密钥",
+          "text": "把客户端密钥放进 `argocd-secret` 这个 Secret，`oidc.config` 可以从这里引用。"
+        },
+        {
+          "title": "在 argocd-cm 里配置 OIDC",
+          "text": "在 `argocd-cm` 这个 ConfigMap 里添加 Casdoor。Casdoor 把用户所属的群组放在 ID token 里，Argo CD 也是从 ID token 读群组。"
+        },
+        {
+          "title": "按群组授权",
+          "text": "在 `argocd-rbac-cm` 里把 Casdoor 群组映射到 Argo CD 角色。这里 `argocd-admins` 的成员拥有全部权限，其他人只能查看。"
+        },
+        {
+          "title": "登录",
+          "text": "Argo CD 登录页上会多出 **Log in via Casdoor** 按钮，运行 `argocd login argocd.example.com --sso` 会在浏览器里打开 Casdoor。"
+        }
+      ],
+      "tips": [
+        "修改 `oidc.config` 后 Argo CD 不用重启就能生效，但用户要重新登录才能拿到新的群组成员关系。"
+      ],
+      "faqs": [
+        {
+          "question": "还需要 Dex 吗？",
+          "answer": "不需要。配了 `oidc.config` 后 Argo CD 直接和 Casdoor 通信，Dex 可以不配置。"
+        },
+        {
+          "question": "argocd CLI 能通过 Casdoor 登录吗？",
+          "answer": "能。`argocd login <server> --sso` 会打开浏览器，并在 `http://localhost:8085/auth/callback` 接收登录结果，所以 Casdoor 应用里要加上这个地址。"
+        }
+      ]
+    }
+  },
+  "aurora": {
+    "version": "1.0.0",
+    "name": "Aurora",
+    "description": "以主题色调染的柔和粉彩网格渐变，前面是磨砂玻璃卡片，配柔和的圆角输入框和渐变按钮。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "顶部的光晕、按钮、链接和获得焦点的输入框。"
+      }
+    }
+  },
+  "authelia": {
+    "version": "1.0.0",
+    "name": "Authelia",
+    "description": "让用户通过 Authelia 用 OpenID Connect 登录 Casdoor：包括提供商配置，以及要加到 Authelia 配置里的客户端。",
+    "variables": {
+      "autheliaUrl": {
+        "label": "Authelia 地址",
+        "description": "你的 Authelia 门户地址，末尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "用 Authelia 账号登录 Casdoor：OpenID Connect 配置指南",
+      "headline": "用 Authelia 登录 Casdoor",
+      "summary": "Authelia 的 OpenID Connect 提供商可以让其他应用用 Authelia 账号加第二步验证来登录。把它加到 Casdoor 里，你的 Casdoor 应用也能用同样的方式登录。",
+      "steps": [
+        {
+          "title": "生成客户端密钥",
+          "text": "Authelia 存的是客户端密钥的哈希。这条命令会输出一个随机密钥和它的摘要：密钥填到 Casdoor，摘要写进 Authelia 的配置。"
+        },
+        {
+          "title": "把 Casdoor 注册为客户端",
+          "text": "在 Authelia 的配置里添加一个客户端，客户端 ID 可以随意取，然后重启 Authelia。"
+        }
+      ],
+      "tips": [
+        "Authelia 不支持 RP 发起的登出，所以退出 Casdoor 不会结束 Authelia 的会话。",
+        "Authelia 的 ID token 只放最少的信息，profile 和 email 声明由它的 userinfo 端点返回，Casdoor 会去读，所以不需要配置 `claims_policy`。",
+        "如果 discovery 文档里的地址不对，检查反向代理发给 Authelia 的 `X-Forwarded-Proto` 和 `Host` 请求头。"
+      ],
+      "faqs": [
+        {
+          "question": "授权策略用哪个？",
+          "answer": "`two_factor` 要求用户先完成 Authelia 的第二步验证才能进入 Casdoor。如果只要密码就够了，例如 Casdoor 应用自己会要求 MFA，就用 `one_factor`。"
+        },
+        {
+          "question": "为什么用 client_secret_basic？",
+          "answer": "这是 Authelia 的默认方式，也是 Casdoor 最先尝试的方式。"
+        }
+      ]
+    }
+  },
+  "authentik": {
+    "version": "1.0.0",
+    "name": "authentik",
+    "description": "让用户用 authentik 账号通过 OpenID Connect 登录 Casdoor：包括提供商配置，以及要在 authentik 里创建的应用和 OAuth2 提供商。",
+    "variables": {
+      "authentikUrl": {
+        "label": "authentik 地址",
+        "description": "你的 authentik 服务器地址，末尾不带斜杠。"
+      },
+      "appSlug": {
+        "label": "应用 slug",
+        "description": "你在 authentik 里为 Casdoor 创建的应用的 slug。"
+      }
+    },
+    "guide": {
+      "title": "用 authentik 账号登录 Casdoor：OpenID Connect 配置指南",
+      "headline": "用 authentik 登录 Casdoor",
+      "summary": "把 authentik 作为 OpenID Connect 提供商加到 Casdoor 里，用户就能用在 authentik 里已有的账号、MFA 和策略登录你的 Casdoor 应用。",
+      "steps": [
+        {
+          "title": "创建应用",
+          "text": "在 authentik 管理界面打开 **Applications → Applications**，点 **New Application**。填上名称，slug 设为 `{{appSlug}}`，提供商类型选 **OAuth2/OpenID Connect**。"
+        },
+        {
+          "title": "配置提供商",
+          "text": "在提供商这一步，客户端类型保持 confidential（机密），添加一个 strict（严格匹配）的重定向 URI，并选一个签名密钥：",
+          "fields": [
+            "Client type",
+            "Redirect URIs",
+            "Signing Key"
+          ]
+        },
+        {
+          "title": "复制凭据",
+          "text": "完成向导后打开这个提供商，复制它的 **Client ID** 和 **Client Secret**。"
+        }
+      ],
+      "tips": [
+        "authentik 提供商的 issuer 包含应用 slug，并以斜杠结尾，例如 `{{authentikUrl}}/application/o/{{appSlug}}/`。Casdoor 会拿它和 token 里的 issuer 比较，所以 slug 必须一致。",
+        "一定要选签名密钥。不选的话，authentik 会用客户端密钥签名 token，也不会公开任何公钥。",
+        "从 authentik 2025.10 起，除非你改了 email scope 的映射，否则 `email_verified` 为 false，Casdoor 收到的邮箱会是未验证状态。"
+      ],
+      "faqs": [
+        {
+          "question": "Casdoor 提示 issuer 不匹配，为什么？",
+          "answer": "检查 slug 和末尾的斜杠。如果把提供商的 issuer 模式设成了 global，issuer 就是 `{{authentikUrl}}/`，把它填到 Casdoor 里这个提供商的“Issuer链接”中。"
+        },
+        {
+          "question": "需要打开 Include claims in id_token 吗？",
+          "answer": "不需要。Casdoor 还会调用 authentik 的 userinfo 端点，它会返回 profile 和 email 声明。"
+        }
+      ]
+    }
+  },
+  "backdrop": {
+    "version": "1.0.0",
+    "name": "Backdrop",
+    "description": "整页铺上你自己的图片并略微调暗，上面是一张磨砂玻璃卡片。自带一张黄昏山景，填任意图片地址即可换成你的。组织管理员可以安装。",
+    "variables": {
+      "backgroundUrl": {
+        "label": "背景图URL",
+        "description": "页面背景图片的地址，宽度 1920 像素或以上。可以在 Casdoor 的资源里上传图片，再把地址粘贴到这里。"
+      },
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮和复选框。可以从图片里取一种颜色。"
+      }
+    }
+  },
+  "bare": {
+    "version": "1.0.0",
+    "name": "Bare",
+    "description": "只有表单：没有卡片和背景，左对齐的小 Logo，低调的文字标签页，细线输入框和圆形按钮，留白充足。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、复选框和获得焦点的输入框下方的线。"
+      }
+    }
+  },
+  "blueprint": {
+    "version": "1.0.0",
+    "name": "Blueprint",
+    "description": "工程图风格：蓝图蓝方格纸上的白色线条，表单加了边框、像插图一样带标注，虚线输入框和制图字体。从 Google Fonts 加载 Share Tech Mono 字体。组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "纸张的颜色。请用深色：线条和文字都是白色。"
+      }
+    }
+  },
+  "brutal": {
+    "version": "1.0.0",
+    "name": "Brutal",
+    "description": "新野兽派：粗黑描边、硬朗的错位阴影，点阵底纹页面上配醒目的主题色；鼠标悬停时按钮会按下去。请选亮色，上面的文字保持黑色。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、选中的标签页、复选框和焦点阴影。请用亮色：上面的文字是黑色。"
+      }
+    }
+  },
+  "catppuccin": {
+    "version": "1.0.0",
+    "name": "Catppuccin",
+    "description": "Catppuccin Mocha 配色：温暖的深色底上配柔和的粉彩色，圆润舒适，默认主题色为淡紫色。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、链接和获得焦点的输入框。Mocha 的强调色有淡紫 #cba6f7、粉 #f5c2e7、桃 #fab387、绿 #a6e3a1、天蓝 #89dceb 和薰衣草紫 #b4befe。"
+      }
+    }
+  },
+  "civic": {
+    "version": "1.0.0",
+    "name": "Civic",
+    "description": "朴素、无障碍，像政务服务网站：黑色页头带蓝色条纹，没有卡片，标签大而粗，输入框边框加粗，焦点环为黄色，按钮为实心。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "登录按钮。用深色能让白色文字清晰可读。"
+      }
+    }
+  },
+  "common-password-check": {
+    "version": "1.0.0",
+    "name": "常用密码检查",
+    "description": "拒绝最常用的密码和包含用户名的密码，密码表内置在插件里，不会有任何数据发出 Casdoor。",
+    "guide": {
+      "title": "常用密码检查：在 Casdoor 里拒绝常用密码",
+      "headline": "拒绝常用密码",
+      "summary": "用户注册或修改密码时，Casdoor 会拒绝最常用的密码（例如 123456 和 woaini1314）以及包含用户名的密码。密码表内置在插件里，不会有任何数据发出 Casdoor。",
+      "steps": [
+        {
+          "title": "安装插件",
+          "text": "在组织的 **集成市场** 页面安装 **常用密码检查**，需要商业版许可证。"
+        },
+        {
+          "title": "启用",
+          "text": "在组织的 **安全设置** 标签页里，把它加到 **密码检查插件** 中并保存。"
+        },
+        {
+          "title": "试一下",
+          "text": "把一个用户的密码改成 `123456`：Casdoor 会拒绝，并说明原因。"
+        }
+      ]
+    }
+  },
+  "cupertino": {
+    "version": "1.0.0",
+    "name": "Cupertino",
+    "description": "通透的灰色页面上放一张柔和的白色卡片，输入框大而圆，登录方式用分段控件切换，按钮较高，字体用访客设备的系统字体。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、链接和获得焦点的输入框。"
+      }
+    }
+  },
+  "dracula": {
+    "version": "1.0.0",
+    "name": "Dracula",
+    "description": "Dracula 配色：深紫灰的夜色配粉色和紫色高亮，渐变按钮，链接为青色。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "获得焦点的输入框、选中的标签页和按钮渐变的起始色，渐变终点是 Dracula 粉。"
+      }
+    }
+  },
+  "fluent": {
+    "version": "1.0.0",
+    "name": "Fluent",
+    "description": "柔和粉彩底色上放一张带柔和阴影的直角白色卡片，输入框带下划线，右侧是紧凑的方形按钮，风格接近 Fluent Design。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、链接、选中的标签页和获得焦点的输入框。"
+      }
+    }
+  },
+  "gitea": {
+    "version": "1.0.0",
+    "name": "Gitea",
+    "description": "在 Gitea 里把 Casdoor 添加为 OpenID Connect 认证源：add-oauth 命令、回调地址，以及让 Casdoor 群组成员成为管理员。",
+    "variables": {
+      "appUrl": {
+        "label": "Gitea 地址",
+        "description": "大家打开 Gitea 用的地址，末尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Gitea 单点登录：用 Casdoor 的 OpenID Connect 配置指南",
+      "headline": "Gitea 单点登录",
+      "summary": "Gitea 通过 OAuth2 认证源登录，其中包括 OpenID Connect 提供方。把 Casdoor 添加为认证源后，开发者用 Casdoor 账号登录你的 Git 服务器。",
+      "redirectNote": "路径里的 `Casdoor` 是下一步中认证源的名称，两处必须一致，大小写也要一样。",
+      "groupExample": "`gitea-admins`",
+      "steps": [
+        {
+          "title": "添加认证源",
+          "text": "在 Gitea 服务器上运行下面的命令（Docker 部署的话在前面加 `docker exec -u git <container>`），或者在 **Site Administration → Authentication Sources**（站点管理 → 认证源）里选 **OAuth2** 和 **OpenID Connect** 提供方，填同样的值。"
+        },
+        {
+          "title": "登录",
+          "text": "Gitea 登录页上会多出 **Sign in with Casdoor** 按钮。第一次登录时，用户可以注册新的 Gitea 账号，也可以关联已有账号。`gitea-admins` 的成员会成为 Gitea 管理员。"
+        }
+      ],
+      "tips": [
+        "想跳过注册表单、直接建账号，在 `app.ini` 的 `[oauth2_client]` 段里设置 `ENABLE_AUTO_REGISTRATION = true`。"
+      ],
+      "faqs": [
+        {
+          "question": "Forgejo 能用吗？",
+          "answer": "Forgejo 保留了 Gitea 的 OAuth2 认证源，设置是一样的；具体命令名以 Forgejo 文档为准。"
+        },
+        {
+          "question": "能要求所有人都用 Casdoor 登录吗？",
+          "answer": "能。等用户都关联了 Casdoor，在 Gitea 的 `[service]` 设置里关掉密码登录，只留 Casdoor 按钮这一个入口。"
+        }
+      ]
+    }
+  },
+  "gitlab": {
+    "version": "1.0.0",
+    "name": "GitLab",
+    "description": "让自建 GitLab 通过 OpenID Connect 用 Casdoor 登录：gitlab.rb 里的提供方配置、自动建账号，以及按群组设置管理员。",
+    "variables": {
+      "appUrl": {
+        "label": "GitLab 地址",
+        "description": "大家打开 GitLab 用的地址，末尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "GitLab 单点登录：用 Casdoor 的 OpenID Connect 配置指南",
+      "headline": "自建 GitLab 单点登录",
+      "summary": "自建 GitLab 通过 OmniAuth 提供方登录，支持任意 OpenID Connect 提供方。把 Casdoor 配成提供方后，开发者用同一个账号登录 GitLab 和你的其他工具。",
+      "steps": [
+        {
+          "title": "在 gitlab.rb 里添加 Casdoor",
+          "text": "GitLab 只通过 HTTPS 和 OpenID 提供方通信，所以 Casdoor 要用 HTTPS 访问。把下面的内容加到 `/etc/gitlab/gitlab.rb`，然后运行 `sudo gitlab-ctl reconfigure`。"
+        },
+        {
+          "title": "映射 Casdoor 群组（GitLab Premium 和 Ultimate）",
+          "text": "要让某个 Casdoor 群组的成员成为 GitLab 管理员，或者把外包人员标成外部用户，在 `client_options` 里加一个 `gitlab` 块。把 Casdoor 应用的 **Token 中的群组格式** 设为 **Name**，这样两边的值才对得上。"
+        },
+        {
+          "title": "登录",
+          "text": "登录页上会多出 **Casdoor** 按钮。已有 GitLab 账号的人可以在 **User settings → Account → Service sign-in**（用户设置 → 账号 → 服务登录）里关联 Casdoor。"
+        }
+      ],
+      "tips": [
+        "`omniauth_allow_single_sign_on` 让 GitLab 在用户第一次登录时建账号，`omniauth_block_auto_created_users = false` 让新用户不用等管理员审批就能进来。",
+        "`uid_field: \"sub\"` 把每个 GitLab 身份绑定到 Casdoor 的用户 ID，用户改名时这个 ID 不变。"
+      ],
+      "faqs": [
+        {
+          "question": "需要 GitLab Premium 吗？",
+          "answer": "单点登录不需要：任何自建 GitLab 都能把 Casdoor 当作 OpenID Connect 提供方。基于 OIDC 群组成员关系的规则（必需群组、外部群组和管理员群组）需要 GitLab Premium 或 Ultimate。"
+        },
+        {
+          "question": "我的 GitLab 是从源码编译的，配置写在哪？",
+          "answer": "把同样的提供方配置写在 `config/gitlab.yml` 的 `omniauth` 下；GitLab 的 OpenID Connect 文档里在 gitlab.rb 格式旁边也给了这种格式。"
+        }
+      ]
+    }
+  },
+  "gitlab-self-managed": {
+    "version": "1.0.0",
+    "name": "GitLab Self-Managed",
+    "description": "让用户用你自建 GitLab 上的账号通过 OpenID Connect 登录 Casdoor：包括提供商配置，以及要在 GitLab 里创建的 OAuth 应用。",
+    "variables": {
+      "gitlabUrl": {
+        "label": "GitLab 地址",
+        "description": "你的 GitLab 实例地址，末尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "用自建 GitLab 账号登录 Casdoor：OpenID Connect 配置指南",
+      "headline": "用自建 GitLab 登录 Casdoor",
+      "summary": "GitLab 也是 OpenID Connect 提供商。Casdoor 内置的 GitLab 提供商只连 gitlab.com；这个模板让 Casdoor 连到你自己的 GitLab，开发者用每天都在用的账号登录。",
+      "steps": [
+        {
+          "title": "在 GitLab 里创建 OAuth 应用",
+          "text": "以管理员身份打开 **Admin → Applications**，点 **Add new application**。（在群组的 **Settings → Applications** 或你自己的 **Edit profile → Applications** 里建也可以，只是没有 Trusted 选项。）填写：",
+          "fields": [
+            "Name",
+            "Redirect URI",
+            "Trusted",
+            "Confidential",
+            "Scopes"
+          ]
+        },
+        {
+          "title": "复制凭据",
+          "text": "保存应用，复制 **Application ID**（即客户端 ID）和 **Secret**。GitLab 存的是 secret 的哈希，所以只有这一次能看到它。"
+        }
+      ],
+      "tips": [
+        "GitLab 只对设置了公开邮箱的用户发送 `email`，其他用户进到 Casdoor 时没有邮箱。",
+        "在 GitLab 里重新生成 secret 后，登录会失败，直到你把新的 secret 填进 Casdoor。"
+      ],
+      "faqs": [
+        {
+          "question": "能用于 gitlab.com 吗？",
+          "answer": "可以，GitLab 地址填 `https://gitlab.com` 即可，不过 Casdoor 内置的 GitLab 提供商已经支持 gitlab.com。"
+        },
+        {
+          "question": "GitLab 的群组会同步过来吗？",
+          "answer": "不会。GitLab 的 userinfo 端点会返回用户所在的群组，但 Casdoor 只从中填写标准的个人资料，不会填到 Casdoor 的群组里。"
+        }
+      ]
+    }
+  },
+  "grafana": {
+    "version": "1.0.0",
+    "name": "Grafana",
+    "description": "用 OpenID Connect 配置 Grafana 通过 Casdoor 单点登录：Generic OAuth 设置、PKCE，以及按 Casdoor 群组映射 Grafana 角色。",
+    "variables": {
+      "appUrl": {
+        "label": "Grafana 地址",
+        "description": "大家打开 Grafana 用的地址，末尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Grafana 单点登录：用 Casdoor 的 OpenID Connect 配置指南",
+      "headline": "Grafana 单点登录",
+      "summary": "Grafana 的 Generic OAuth 支持任意 OpenID Connect 提供方。把它指向 Casdoor，大家就用 Casdoor 账号登录 Grafana，多因素认证和社交登录照样能用，Grafana 角色按 Casdoor 群组设置。",
+      "groupExample": "`grafana-admins` 和 `grafana-editors`",
+      "steps": [
+        {
+          "title": "配置 Grafana",
+          "text": "把这一段加到 `grafana.ini`，或者用 `GF_AUTH_GENERIC_OAUTH_*` 环境变量设置同样的配置项。`root_url` 必须是大家在浏览器里打开的地址，因为 Grafana 用它拼出回调地址。"
+        },
+        {
+          "title": "登录",
+          "text": "重启 Grafana，登录页上会多出 **Sign in with Casdoor** 按钮。`grafana-admins` 的成员成为 Admin，`grafana-editors` 的成员成为 Editor，其他人是 Viewer。"
+        }
+      ],
+      "tips": [
+        "Grafana 先用 ID token 计算 `role_attribute_path`，再用 userinfo 响应。Casdoor 的 ID token 里还以对象形式列出了用户的角色，所以想用 Casdoor 角色而不是群组的话，也可以写 `contains(roles[*].name, 'admin')`。",
+        "Grafana 要求每个用户都有邮箱，确认你的 Casdoor 用户都填了邮箱。"
+      ],
+      "faqs": [
+        {
+          "question": "能改用 SAML 吗？",
+          "answer": "Grafana 的 SAML 登录属于 Grafana Enterprise 和 Grafana Cloud。开源版 Grafana 要接 Casdoor，就用这里介绍的 Generic OAuth 走 OpenID Connect。"
+        },
+        {
+          "question": "Casdoor 群组会变成 Grafana 团队吗？",
+          "answer": "`groups_attribute_path` 用于 Grafana 的 Team Sync，这是 Grafana Enterprise 和 Grafana Cloud 的功能。开源版 Grafana 里，按上面的方法用群组设置角色。"
+        }
+      ]
+    }
+  },
+  "halves": {
+    "version": "1.0.0",
+    "name": "Halves",
+    "description": "不用任何 HTML 实现左右分屏：表单在左半边的白底上，右半边是你的颜色，带圆环和点阵。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "页面右半边、按钮、链接和获得焦点的输入框。"
+      }
+    }
+  },
+  "hibp-password-check": {
+    "version": "1.0.0",
+    "name": "Have I Been Pwned 泄露密码检查",
+    "description": "用 Have I Been Pwned 核对密码，拒绝在数据泄露中出现过的密码，并在登录时要求用户修改，核对时不发送密码本身。",
+    "guide": {
+      "title": "Have I Been Pwned 泄露密码检查：在 Casdoor 里拒绝泄露过的密码",
+      "headline": "拒绝泄露过的密码",
+      "summary": "每次设置密码时，Casdoor 会拿它和 Have I Been Pwned 的 Pwned Passwords 列表核对，拒绝在数据泄露中出现过的密码。登录时，如果用户的密码是在设置之后才泄露的，Casdoor 会要求用户修改。只发送密码 SHA-1 哈希的前 5 个字符。",
+      "steps": [
+        {
+          "title": "安装插件",
+          "text": "在组织的 **集成市场** 页面安装 **Have I Been Pwned 泄露密码检查**，需要商业版许可证，只会访问 `api.pwnedpasswords.com`。"
+        },
+        {
+          "title": "启用",
+          "text": "在组织的 **安全设置** 标签页里，把它加到 **密码检查插件** 中并保存。"
+        },
+        {
+          "title": "试一下",
+          "text": "把一个用户的密码改成 `P@ssw0rd`：Casdoor 会拒绝，因为它在数据泄露中出现过。"
+        }
+      ],
+      "tips": [
+        "连不上 api.pwnedpasswords.com 时，检查会放行密码，以免影响登录。"
+      ]
+    }
+  },
+  "higress": {
+    "version": "1.0.0",
+    "name": "Higress",
+    "description": "用 Wasm 插件给 Higress 后面的服务加上 Casdoor 登录：浏览器跳转到 Casdoor，API 调用要带 Casdoor token，用户信息通过请求头传给上游。",
+    "variables": {
+      "appUrl": {
+        "label": "受保护站点地址",
+        "description": "用户在网关后面打开的地址，结尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Higress 网关接入 Casdoor 登录：Wasm 插件配置指南",
+      "headline": "用 Casdoor 保护 Higress 后面的服务",
+      "summary": "Higress 的 Casdoor Wasm 插件用授权码流程加 PKCE 让浏览器通过 Casdoor 登录，按 JWKS 校验 API 调用里的 Casdoor token，并通过 X-Casdoor-User、X-Casdoor-Email 和 X-Casdoor-Organization 请求头把用户传给上游。只有在 Casdoor 有商业版许可证时才能运行。",
+      "steps": [
+        {
+          "title": "从集成市场安装",
+          "text": "在 Casdoor 的 **集成市场** 页面安装 **Higress**，填上受保护站点的地址。Casdoor 会建好应用，把回调地址 `/casdoor/callback` 和退出登录后的落地页设为重定向URLs。然后在同一个对话框里下载 `casdoor-higress.wasm`。"
+        },
+        {
+          "title": "发布模块",
+          "text": "把模块放到 Higress 能拉取的地方，例如用插件自带的 Dockerfile 构建的 OCI 镜像，或者一个 HTTPS 地址；再在 McpBridge 里配一个 DNS 服务，让网关能访问 Casdoor。"
+        },
+        {
+          "title": "添加 WasmPlugin",
+          "text": "新建一个指向这个模块的 WasmPlugin，填上应用的客户端ID和客户端密钥。"
+        },
+        {
+          "title": "试一下",
+          "text": "在无痕窗口里打开受保护的站点：它会把你送到 Casdoor，登录后回到原页面。访问 `/casdoor/logout` 退出登录。"
+        }
+      ],
+      "tips": [
+        "插件每 10 分钟向 Casdoor 查一次许可证，Casdoor 是开源版时返回 403。"
+      ]
+    }
+  },
+  "http-password-migration": {
+    "version": "1.0.0",
+    "name": "通过 HTTP 迁移密码",
+    "description": "迁移导入时没带密码的用户的密码：用户第一次登录时，Casdoor 通过 HTTPS 问旧系统密码是否正确，正确就保存下来。",
+    "guide": {
+      "title": "通过 HTTP 把用户密码迁移到 Casdoor",
+      "headline": "在第一次登录时迁移密码",
+      "summary": "从不导出密码哈希的系统导入的用户，在 Casdoor 里没有密码。用户第一次登录时，Casdoor 通过 HTTPS 问旧系统输入的密码是否正确，正确就保存下来，以后不再询问。",
+      "steps": [
+        {
+          "title": "在旧系统里加核对接口",
+          "text": "开放一个 HTTPS 接口，接收带你自定的 bearer token 的 `POST {\"username\": \"...\", \"password\": \"...\"}` 请求，密码正确时返回 `200 {\"valid\": true}`。"
+        },
+        {
+          "title": "安装插件",
+          "text": "在组织的 **集成市场** 页面安装 **通过 HTTP 迁移密码**，需要商业版许可证。"
+        },
+        {
+          "title": "启用",
+          "text": "在组织的 **安全设置** 标签页里填写以下各项并保存。",
+          "fields": [
+            "密码迁移插件",
+            "密码迁移地址",
+            "密码迁移密钥"
+          ]
+        }
+      ],
+      "tips": [
+        "插件只能访问迁移地址所在的主机，而且只能走 443 端口的 HTTPS。"
+      ]
+    }
+  },
+  "immich": {
+    "version": "1.0.0",
+    "name": "Immich",
+    "description": "让大家用 Casdoor 登录 Immich：Immich 管理后台里的 OAuth 设置、网页端和手机端的重定向 URI，以及存储标签映射。",
+    "variables": {
+      "appUrl": {
+        "label": "Immich 地址",
+        "description": "大家打开 Immich 用的地址，末尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Immich 单点登录：用 Casdoor 配置 OAuth 登录",
+      "headline": "Immich 单点登录",
+      "summary": "Immich 的网页端和手机 App 都支持用任意 OpenID Connect 提供方做 OAuth 登录。接入 Casdoor 后，家人或同事用已有的账号登录你的相册。",
+      "redirectNote": "前两个要为你打开 Immich 用的每个地址各加一份；最后一个给 iOS 和 Android App 用。",
+      "steps": [
+        {
+          "title": "在 Immich 里配置 OAuth",
+          "text": "在 Immich 里打开 **Administration → Settings → OAuth**（管理 → 设置 → OAuth），启用 OAuth 并填写：",
+          "fields": [
+            "Issuer URL",
+            "Client ID",
+            "Client Secret",
+            "Scope",
+            "Storage Label Claim",
+            "Button Text",
+            "Auto Register"
+          ]
+        },
+        {
+          "title": "登录",
+          "text": "保存后在无痕窗口里打开 Immich：登录页上有 **Login with Casdoor** 按钮。已有用户可以在 **Account Settings → OAuth**（账户设置 → OAuth）里关联账号。"
+        }
+      ],
+      "tips": [
+        "Immich 按邮箱把 OAuth 用户和已有账号对应起来，所以 Casdoor 用户的邮箱要和他们在 Immich 里用的一致。",
+        "**Auto Launch**（自动跳转）会跳过 Immich 登录页，直接进入 Casdoor。"
+      ],
+      "faqs": [
+        {
+          "question": "Immich 手机 App 能用吗？",
+          "answer": "能，只要 `app.immich:///oauth-callback` 在 Casdoor 里这个应用的重定向 URL 中。App 里会显示同样的 OAuth 按钮。"
+        },
+        {
+          "question": "能由 Casdoor 决定谁是 Immich 管理员吗？",
+          "answer": "Immich 默认从名为 `immich_role` 的声明读取角色。没有这个声明时，用户都以普通用户身份登录，管理员要在 Immich 里自己设置。"
+        }
+      ]
+    }
+  },
+  "keycloak": {
+    "version": "1.0.0",
+    "name": "Keycloak",
+    "description": "让用户用 Keycloak 账号通过 OpenID Connect 登录 Casdoor：包括 Keycloak realm 的提供商配置，以及要在 Keycloak 一侧创建的客户端。",
+    "variables": {
+      "keycloakUrl": {
+        "label": "Keycloak 地址",
+        "description": "你的 Keycloak 服务器地址，末尾不带斜杠。Keycloak 16 及更早的版本末尾要加 /auth。"
+      },
+      "realm": {
+        "label": "Realm",
+        "description": "你的用户所在的 realm。"
+      }
+    },
+    "guide": {
+      "title": "用 Keycloak 账号登录 Casdoor：OpenID Connect 配置指南",
+      "headline": "用 Keycloak 登录 Casdoor",
+      "summary": "已经在用 Keycloak？把它作为 OpenID Connect 提供商加到 Casdoor 里，用户就能用 Keycloak 账号登录你的 Casdoor 应用，其余的由 Casdoor 负责：其他社交登录、MFA、应用和权限。",
+      "steps": [
+        {
+          "title": "在 Keycloak 里创建客户端",
+          "text": "在 Keycloak 管理控制台切换到 `{{realm}}` realm，打开 **Clients**，点 **Create client**。客户端类型选 **OpenID Connect**，填一个客户端 ID（例如 `casdoor`），点 **Next**。"
+        },
+        {
+          "title": "打开客户端认证",
+          "text": "打开 **Client authentication**，保持 **Standard flow** 启用，点 **Next**，填写登录设置：",
+          "fields": [
+            "Valid redirect URIs"
+          ]
+        },
+        {
+          "title": "复制客户端密钥",
+          "text": "保存客户端，打开它的 **Credentials** 标签页，复制 **Client secret**。客户端 ID 就是你刚才填的那个。"
+        }
+      ],
+      "tips": [
+        "Keycloak 对重定向 URI 做精确匹配，所以要填用户实际访问的 Casdoor 地址，不要用通配符。",
+        "Casdoor 用 Keycloak 的用户 ID（`sub`）关联账号，所以在 Keycloak 里给用户改名不会多出一个 Casdoor 账号。"
+      ],
+      "faqs": [
+        {
+          "question": "我的 Keycloak 地址里带 /auth，还能用吗？",
+          "answer": "能。Keycloak 16 及更早的版本在每个路径前都有 `/auth`，把它写进 Keycloak 地址，例如 `https://keycloak.example.com/auth`。"
+        },
+        {
+          "question": "可以改用 SAML 吗？",
+          "answer": "Casdoor 也有 Keycloak SAML 提供商。OpenID Connect 两边要配的东西更少，所以这个模板用它。"
+        }
+      ]
+    }
+  },
+  "kong": {
+    "version": "1.0.0",
+    "name": "Kong Gateway",
+    "description": "用 Lua 插件给 Kong Gateway 后面的服务加上 Casdoor 登录：浏览器跳转到 Casdoor，API 调用要带 Casdoor token，用户信息通过请求头传给上游。",
+    "variables": {
+      "appUrl": {
+        "label": "受保护站点地址",
+        "description": "用户在网关后面打开的地址，结尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Kong Gateway 接入 Casdoor 登录：插件配置指南",
+      "headline": "用 Casdoor 保护 Kong 后面的服务",
+      "summary": "Kong Gateway 3.x 的 Casdoor 插件用授权码流程加 PKCE 让浏览器通过 Casdoor 登录，按 JWKS 校验 API 调用里的 Casdoor token，并通过 X-Casdoor-User、X-Casdoor-Email 和 X-Casdoor-Organization 请求头把用户传给上游。只有在 Casdoor 有商业版许可证时才能运行。",
+      "steps": [
+        {
+          "title": "从集成市场安装",
+          "text": "在 Casdoor 的 **集成市场** 页面安装 **Kong Gateway**，填上受保护站点的地址。Casdoor 会建好应用，把回调地址 `/casdoor/callback` 和退出登录后的落地页设为重定向URLs。然后在同一个对话框里下载 `kong-plugin-casdoor-0.1.0.zip`。"
+        },
+        {
+          "title": "在 Kong 上安装插件",
+          "text": "在每个 Kong 节点上解压，用 LuaRocks 安装，再把 `casdoor` 加到 Kong 加载的插件列表里。"
+        },
+        {
+          "title": "在服务上启用",
+          "text": "启用插件，填上应用的客户端ID和客户端密钥。"
+        },
+        {
+          "title": "试一下",
+          "text": "在无痕窗口里打开受保护的站点：它会把你送到 Casdoor，登录后回到原页面。访问 `/casdoor/logout` 退出登录。"
+        }
+      ],
+      "tips": [
+        "插件每 10 分钟向 Casdoor 查一次许可证，Casdoor 是开源版时返回 403。"
+      ]
+    }
+  },
+  "lark-push": {
+    "version": "1.0.0",
+    "name": "飞书确认登录",
+    "description": "登录需要第二步验证时，给用户发一张飞书（Lark）卡片，点一下“确认”就能登录，不用输验证码。",
+    "guide": {
+      "title": "飞书（Lark）确认登录：Casdoor 推送 MFA",
+      "headline": "在飞书（Lark）里确认登录",
+      "summary": "登录需要第二步验证时，Casdoor 通过你的飞书（Lark）应用给用户发一张交互卡片。用户点“确认”就批准了这次登录，不用输验证码。",
+      "steps": [
+        {
+          "title": "准备应用",
+          "text": "在飞书（Lark）开发者后台打开一个企业自建应用，启用机器人能力和以应用身份发消息的权限，发布版本，然后复制 **App ID** 和 **App Secret**。"
+        },
+        {
+          "title": "安装插件",
+          "text": "在组织的 **集成市场** 页面安装 **飞书确认登录**，客户端 ID 填 App ID，客户端密钥填 App Secret，需要商业版许可证。"
+        },
+        {
+          "title": "选择平台",
+          "text": "打开新建的类型为 **Plugin** 的通知提供商，用飞书就把 **主机** 留空，用 Lark 就填上，然后把这个提供商加到应用里。",
+          "fields": [
+            "主机"
+          ]
+        },
+        {
+          "title": "为用户启用",
+          "text": "用户在自己的账户页用这个提供商设置推送 MFA。用飞书或 Lark 登录过的用户会在自己的账号上收到卡片，其他用户要填自己的 open_id。"
+        }
+      ]
+    }
+  },
+  "material": {
+    "version": "1.0.0",
+    "name": "Material",
+    "description": "柔和的灰色页面上放一大张圆角白色卡片，56px 高的描边输入框，右侧是胶囊形按钮，风格接近 Material Design。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、链接、选中的标签页和获得焦点的输入框。"
+      }
+    }
+  },
+  "midnight": {
+    "version": "1.0.0",
+    "name": "Midnight",
+    "description": "深色登录页，磨砂卡片后面有一圈主题色的柔和光晕。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、链接和卡片后面的光晕。"
+      }
+    }
+  },
+  "mono": {
+    "version": "1.0.0",
+    "name": "Mono",
+    "description": "纯黑白：渐隐的网格上放一张细线边框的卡片，按钮为白色，没有别的元素分散注意力。只用 CSS，组织管理员可以安装。"
+  },
+  "nextcloud": {
+    "version": "1.0.0",
+    "name": "Nextcloud",
+    "description": "用 OpenID Connect user backend（user_oidc）配置 Nextcloud 通过 Casdoor 单点登录：添加提供方的命令、用户 ID 和群组映射。",
+    "variables": {
+      "appUrl": {
+        "label": "Nextcloud 地址",
+        "description": "大家打开 Nextcloud 用的地址，末尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Nextcloud 单点登录：用 Casdoor 的 OpenID Connect 配置指南",
+      "headline": "Nextcloud 单点登录",
+      "summary": "Nextcloud 的 OpenID Connect user backend 应用（user_oidc）根据 OpenID Connect 提供方创建 Nextcloud 账号。把 Casdoor 配成提供方后，大家用 Casdoor 账号登录 Nextcloud，所属的 Casdoor 群组会变成 Nextcloud 群组。",
+      "redirectNote": "如果你的 Nextcloud 地址里带 `/index.php`，改用 `{{appUrl}}/index.php/apps/user_oidc/code`。",
+      "groupExample": "`family` 或 `finance`",
+      "steps": [
+        {
+          "title": "安装 OpenID Connect 应用",
+          "text": "从 Nextcloud 应用商店安装 **OpenID Connect user backend**，或者用 occ 安装："
+        },
+        {
+          "title": "添加 Casdoor 提供方",
+          "text": "在 Nextcloud 目录下运行下面的命令。它把提供方命名为 Casdoor，把 Nextcloud 用户 ID 映射成 Casdoor 用户名而不是哈希值，并根据 `groups` 声明创建 Nextcloud 群组。"
+        },
+        {
+          "title": "登录",
+          "text": "Nextcloud 登录页上会多出 **Log in with Casdoor** 按钮。要让所有人直接去 Casdoor 登录，就关掉其他登录方式；管理员仍然可以在登录地址后面加 `?direct=1` 打开普通的登录表单。"
+        }
+      ],
+      "tips": [
+        "上面的映射读的是 Casdoor 默认的 ID token，其中 `name` 是用户名，`displayName` 是显示名称。如果把应用的 **Access Token格式** 改成 JWT-Standard，就把用户 ID 映射到 `preferred_username`，显示名称映射到 `name`；这种格式不包含群组。",
+        "不加 `--unique-uid=0` 时，Nextcloud 用提供方和用户 ID 的哈希值保存每个用户，有多个提供方时不会冲突，但不好认。"
+      ],
+      "faqs": [
+        {
+          "question": "Nextcloud 桌面端和手机 App 能用吗？",
+          "answer": "能。这些 App 通过浏览器走 Nextcloud 的登录流程，会显示同样的 Log in with Casdoor 按钮。"
+        },
+        {
+          "question": "能改用 LDAP 吗？",
+          "answer": "Casdoor 也自带 LDAP 服务，Nextcloud 的 LDAP 应用可以连它。不过 OpenID Connect 配置起来更简单，登录时也保留了 Casdoor 的多因素认证、通行密钥和社交登录。"
+        }
+      ]
+    }
+  },
+  "nord": {
+    "version": "1.0.0",
+    "name": "Nord",
+    "description": "Nord 配色：北极风格的石板灰，配霜蓝主题色和清冷的极光光晕，沉静、对比度低。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、链接和获得焦点的输入框。Nord 的霜色有 #8fbcbb、#88c0d0、#81a1c1 和 #5e81ac。"
+      }
+    }
+  },
+  "open-webui": {
+    "version": "1.0.0",
+    "name": "Open WebUI",
+    "description": "用 OpenID Connect 让 Open WebUI 通过 Casdoor 单点登录：OAuth 环境变量、注册，以及按 Casdoor 群组同步分组。",
+    "variables": {
+      "appUrl": {
+        "label": "Open WebUI 地址",
+        "description": "用户打开 Open WebUI 的地址，结尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Open WebUI 单点登录：用 Casdoor 的 OIDC 配置指南",
+      "headline": "Open WebUI 单点登录",
+      "summary": "Open WebUI 是自托管的大模型聊天界面，可以接本地模型和托管模型，支持通过任意 OpenID Connect 提供商登录。接入 Casdoor 后，团队成员用公司账号登录，能看到哪些模型和工具由他们所在的 Casdoor 群组决定。",
+      "groupExample": "`engineering` 或 `support`",
+      "steps": [
+        {
+          "title": "设置 OAuth 环境变量",
+          "text": "把下面这些变量加到 Open WebUI 容器上，然后重启。`OPENID_PROVIDER_URL` 填 Casdoor 的发现文档地址。"
+        },
+        {
+          "title": "登录",
+          "text": "登录页上会出现 **Continue with Casdoor** 按钮。开启群组管理后，用户每次登录都会按他的 Casdoor 群组同步 Open WebUI 里的分组。"
+        }
+      ],
+      "tips": [
+        "Open WebUI 只会把用户加进 Open WebUI 里已经存在的分组。先把分组建好，或者设置 `ENABLE_OAUTH_GROUP_CREATION=true`，让用户登录时自动创建。",
+        "默认以这些环境变量为准，管理面板里的 OAuth 部分是只读的。",
+        "如果已有的本地用户换成 Casdoor 登录后还要保留原来的聊天记录，设置 `OAUTH_MERGE_ACCOUNTS_BY_EMAIL=true`。"
+      ],
+      "faqs": [
+        {
+          "question": "谁会成为管理员？",
+          "answer": "通过 Casdoor 注册的用户拿到的是 `DEFAULT_USER_ROLE` 里的角色。保持默认值 `pending` 时，每个新用户都要管理员审批；改成 `user` 则直接放行。管理员要在 Open WebUI 的管理面板里手动提升。"
+        },
+        {
+          "question": "能按 Casdoor 群组限制可用的模型吗？",
+          "answer": "可以。从 Casdoor 同步过来分组之后，给每个 Open WebUI 分组授权它该看到的模型、知识库和工具。"
+        }
+      ]
+    }
+  },
+  "paper": {
+    "version": "1.0.0",
+    "name": "Paper",
+    "description": "编辑排版风格：米色页面、衬线字体，小型大写字母的标签下是带下划线的输入框，按钮为墨水色。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、链接和获得焦点的输入框。深墨色和纸张最搭。"
+      }
+    }
+  },
+  "pixel": {
+    "version": "1.0.0",
+    "name": "Pixel",
+    "description": "8 位游戏菜单：像素字体、阶梯状边框、星空夜景、闪烁的 PRESS START，以及会按下去的厚实按钮。从 Google Fonts 加载 Press Start 2P 字体。组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、选中的标签页、链接和闪烁的那行字。请用亮色：上面的文字是深色。"
+      }
+    }
+  },
+  "portainer": {
+    "version": "1.0.0",
+    "name": "Portainer",
+    "description": "用 Portainer 的自定义 OAuth 提供商接入 Casdoor 单点登录：各个端点、用户标识、Scopes 和自动创建用户。",
+    "variables": {
+      "appUrl": {
+        "label": "Portainer 地址",
+        "description": "用户打开 Portainer 的地址，结尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Portainer 单点登录：用 Casdoor 的 OAuth 2.0 配置指南",
+      "headline": "Portainer 单点登录",
+      "summary": "Portainer 的自定义 OAuth 提供商可以对接 Casdoor 的 OAuth 2.0 端点，用户用 Casdoor 账号管理容器，不用再单独设一个 Portainer 密码。",
+      "steps": [
+        {
+          "title": "在 Portainer 里配置 OAuth",
+          "text": "在 Portainer 里打开 **Settings → Authentication**（设置 → 认证），选择 **OAuth**，打开 **Use SSO** 和 **Automatic user provisioning**（自动创建用户），提供商选 **Custom**，然后填写：",
+          "fields": [
+            "Client ID",
+            "Client secret",
+            "Authorization URL",
+            "Access token URL",
+            "Resource URL",
+            "Redirect URL",
+            "User identifier",
+            "Scopes"
+          ]
+        },
+        {
+          "title": "登录",
+          "text": "保存后退出登录。Portainer 登录页上会出现 **Login with OAuth** 按钮，点它会跳到 Casdoor。"
+        }
+      ],
+      "tips": [
+        "自动创建出来的新用户没有任何权限，要把他们加进某个团队，或者给他们授权某个环境。",
+        "Portainer 和 Casdoor 里的 Redirect URL 都必须和用户打开 Portainer 的地址完全一致。"
+      ],
+      "faqs": [
+        {
+          "question": "Casdoor 群组能对应成 Portainer 团队吗？",
+          "answer": "把 OAuth 群组映射成 Portainer 团队是 Portainer 商业版（Business Edition）的功能。社区版（Community Edition）里要在 Portainer 中手动把用户分到团队。"
+        },
+        {
+          "question": "为什么用 preferred_username 作为用户标识？",
+          "answer": "它是 userinfo 响应里的 Casdoor 用户名，这样 Portainer 的用户名和 Casdoor 一致。你也可以改用 `email`。"
+        }
+      ]
+    }
+  },
+  "prism": {
+    "version": "1.0.0",
+    "name": "Prism",
+    "description": "浅色页面顶部斜跨一条色带，从主题色过渡到青色和薄荷绿，下面是一张带深而柔和阴影的白色卡片。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "色带的起始色、按钮、链接和获得焦点的输入框。"
+      }
+    }
+  },
+  "proxmox": {
+    "version": "1.0.0",
+    "name": "Proxmox VE",
+    "description": "把 Casdoor 作为 OpenID Connect 域加到 Proxmox VE：pveum 命令、重定向地址、用户名、群组和权限。",
+    "variables": {
+      "appUrl": {
+        "label": "Proxmox VE 地址",
+        "description": "用户打开 Proxmox VE 的地址，结尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Proxmox VE 单点登录：把 Casdoor 配成 OpenID Connect 域",
+      "headline": "Proxmox VE 单点登录",
+      "summary": "Proxmox VE 可以通过 OpenID Connect 域（realm）验证用户。把 Casdoor 配成这个域后，管理员用 Casdoor 账号和多因素认证登录 Proxmox 网页界面，Proxmox 的权限按 Casdoor 群组分配。",
+      "redirectNote": "Proxmox VE 把它网页界面的地址当作重定向地址发过来，所以你打开它用的每个地址都要加上，带端口。",
+      "groupExample": "`pve-admins`",
+      "steps": [
+        {
+          "title": "添加 OpenID Connect 域",
+          "text": "在一台 Proxmox VE 节点上运行下面的命令，或者在 **Datacenter → Permissions → Realms → Add → OpenID Connect Server**（数据中心 → 权限 → 域 → 添加）里添加。`username` 取的是 `preferred_username` 声明，用户显示为 `alice@casdoor` 这样的形式。"
+        },
+        {
+          "title": "给群组授权",
+          "text": "Proxmox VE 会在声明里带来的群组名后面加上域名，所以 `pve-admins` 会变成 `pve-admins-casdoor`。给它分配一个角色，例如整个数据中心的管理员权限："
+        },
+        {
+          "title": "登录",
+          "text": "在 Proxmox VE 登录界面选 **casdoor** 域，点 **Login (OpenID redirect)**，Proxmox 会把你送到 Casdoor，登录后再跳回来。"
+        }
+      ],
+      "tips": [
+        "`--autocreate` 建出来的用户没有任何权限，要等群组或用户的 ACL 给他们授权。",
+        "群组相关的选项只在较新的 Proxmox VE 版本里有；老版本去掉 `--groups-*` 这几行，改成直接给用户授权。"
+      ],
+      "faqs": [
+        {
+          "question": "还能用 root@pam 登录吗？",
+          "answer": "能。添加新域不会改动已有的 PAM 域和 Proxmox VE 域，root@pam 留着当后备。"
+        },
+        {
+          "question": "为什么用 username，而不是默认的 subject 声明？",
+          "answer": "默认的 `sub` 声明是 Casdoor 的用户 ID，是一串随机字符。`username` 能得到 alice@casdoor 这样好认的名字；Casdoor 用户名在一个组织内是唯一的。"
+        }
+      ]
+    }
+  },
+  "retro": {
+    "version": "1.0.0",
+    "name": "Retro",
+    "description": "90 年代桌面：青绿色背景上是带标题栏的灰色立体窗口，凹陷的输入框，标签式对话框，底部有任务栏。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "标题栏。和原版一样，向右渐变为浅蓝色。"
+      }
+    }
+  },
+  "revolut": {
+    "version": "1.0.1",
+    "name": "Revolut 支付",
+    "description": "通过 Revolut Merchant API 为 Casdoor 的商品和计划收款，付款人在 Revolut 托管的收银台用银行卡、Apple Pay、Google Pay 或 Revolut Pay 付款。",
+    "guide": {
+      "title": "Revolut 支付：为 Casdoor 的商品和计划收款",
+      "headline": "用 Revolut 收款",
+      "summary": "用 Revolut Business 销售 Casdoor 的商品和订阅计划：付款人在 Revolut 托管的收银台页面用银行卡、Apple Pay、Google Pay 或 Revolut Pay 付款，Revolut 完成订单后，Casdoor 把订单标记为已支付。",
+      "steps": [
+        {
+          "title": "获取 API 私钥",
+          "text": "按 Revolut 的 **Generate API keys**（生成 API 密钥）说明，在 Revolut Business 账号里生成 Merchant API 密钥，复制 **Secret key**，不需要公钥。想先试用的话，在 Revolut Business 沙盒里做同样的操作，改为复制沙盒的私钥。"
+        },
+        {
+          "title": "从集成市场安装 Revolut",
+          "text": "在 Casdoor 的 **集成市场** 页面安装 Revolut，客户端密钥填上面的私钥。Casdoor 会添加一个同名、类型为 **Plugin** 的支付提供商。"
+        },
+        {
+          "title": "测试时使用沙盒",
+          "text": "使用沙盒密钥期间，在提供商页面把 **主机** 设为 `sandbox-merchant.revolut.com`，换成正式密钥时再清空。",
+          "fields": [
+            "主机"
+          ]
+        },
+        {
+          "title": "把提供商加到商品上",
+          "text": "编辑一个商品，把 Revolut 提供商加到它的 **支付提供商** 里，然后购买一次，确认能跳到 Revolut 的收银台页面。"
+        }
+      ],
+      "tips": [
+        "价格以商品货币的最小单位（例如美分）发给 Revolut，所以商品货币要设成你的 Revolut Business 账号支持的币种。",
+        "Revolut 只在付款成功后才把付款人送回 Casdoor，而且不接受 localhost 或 IP 地址作为返回地址，所以要在有域名的 Casdoor 上测试。"
+      ],
+      "faqs": [
+        {
+          "question": "Casdoor 会为此运行来自集成市场的代码吗？",
+          "answer": "会，是一个在 Casdoor 内部沙盒里运行的小型 WebAssembly 模块。它不能读取文件和数据库，只能向 `merchant.revolut.com` 和 `sandbox-merchant.revolut.com` 发请求。"
+        },
+        {
+          "question": "支持退款或自动续费吗？",
+          "answer": "暂不支持。退款请在 Revolut Business 应用里操作；用 Revolut 付款的计划要续期，就再购买一次。"
+        }
+      ]
+    }
+  },
+  "sketch": {
+    "version": "1.0.0",
+    "name": "Sketch",
+    "description": "在横线笔记本纸上手绘：抖动的墨线轮廓、手写字体、波浪下划线和马克笔颜色的按钮，整体略微倾斜。从 Google Fonts 加载 Patrick Hand 字体。组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、选中的标签页和复选框的马克笔颜色。请用浅色：上面的文字是墨黑色。"
+      }
+    }
+  },
+  "solarized": {
+    "version": "1.0.0",
+    "name": "Solarized",
+    "description": "Solarized Light 配色：温暖的米色底调配精确而柔和的颜色，适合长时间阅读，默认主题色为蓝色。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "按钮、链接和获得焦点的输入框。Solarized 的强调色有黄 #b58900、橙 #cb4b16、红 #dc322f、品红 #d33682、紫 #6c71c4、蓝 #268bd2、青 #2aa198 和绿 #859900。"
+      }
+    }
+  },
+  "split": {
+    "version": "1.0.1",
+    "name": "Split",
+    "description": "登录表单旁边是一块你的品牌色面板，写着你自己的标题。它会设置侧边栏 HTML，Casdoor 4.20.0 及以上版本组织管理员可以安装，更早的版本只有全局管理员可以。",
+    "variables": {
+      "brandColor": {
+        "label": "品牌色",
+        "description": "面板和按钮。"
+      },
+      "headline": {
+        "label": "标题"
+      },
+      "tagline": {
+        "label": "标语"
+      }
+    }
+  },
+  "terminal": {
+    "version": "1.0.0",
+    "name": "Terminal",
+    "description": "老式荧光屏：发光的等宽文字，带轻微闪烁的扫描线，闪烁的提示符，输入框读起来像 shell。只用 CSS，组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "所有文字、边框和按钮的荧光颜色。绿色或琥珀色最像真正的终端。"
+      }
+    }
+  },
+  "vaultwarden": {
+    "version": "1.0.0",
+    "name": "Vaultwarden",
+    "description": "用 OpenID Connect 为 Vaultwarden 开启 Casdoor 单点登录：SSO_* 配置、重定向 URI 和邮箱验证检查。",
+    "variables": {
+      "appUrl": {
+        "label": "Vaultwarden 地址",
+        "description": "用户打开 Vaultwarden 的地址，结尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "Vaultwarden 单点登录：用 Casdoor 的 OpenID Connect 配置",
+      "headline": "Vaultwarden 单点登录",
+      "summary": "Vaultwarden 从 1.35.0 版起支持通过 OpenID Connect 提供商登录。接入 Casdoor 后，团队成员登录密码管理器用的是和其他系统同一个账号、同一套多因素认证。",
+      "steps": [
+        {
+          "title": "配置 Vaultwarden",
+          "text": "在 Vaultwarden 1.35.0 或更高版本上设置下面这些环境变量（例如写在 Docker Compose 里），然后重启。Vaultwarden 根据 `DOMAIN` 拼出重定向 URI。"
+        },
+        {
+          "title": "登录",
+          "text": "用户现在可以在 Vaultwarden 登录页选择单点登录，在 Casdoor 登录后再解锁密码库。等所有人都换过来之后，加上 `SSO_ONLY: \"true\"`，关掉邮箱加密码登录。"
+        }
+      ],
+      "tips": [
+        "`SSO_AUTHORITY` 必须和 `{{casdoorUrl}}/.well-known/openid-configuration` 里的 `issuer` 完全一致，结尾不带斜杠。",
+        "如果 ID token 里是 `email_verified: false`，Vaultwarden 会拒绝给这个用户注册。用户用验证码或魔法链接确认过邮箱后（例如在注册时），Casdoor 才会把邮箱标为已验证。",
+        "Bitwarden 手机 App 从 2026.1.0 版起支持 Vaultwarden 的单点登录。"
+      ],
+      "faqs": [
+        {
+          "question": "用户还需要主密码吗？",
+          "answer": "需要。单点登录替代的是邮箱加密码的登录，密码库仍然用用户的主密码加密，用户在 Casdoor 登录后还要输入主密码。"
+        },
+        {
+          "question": "看不到单点登录选项，为什么？",
+          "answer": "检查服务器上的 Vaultwarden 是否为 1.35.0 或更高版本、`SSO_ENABLED` 是否为 true，然后重启。如果之后登录失败，对照 `SSO_AUTHORITY` 和 Casdoor 的 issuer，再检查 Casdoor 应用里的重定向 URI。"
+        }
+      ]
+    }
+  },
+  "vonage": {
+    "version": "1.0.0",
+    "name": "Vonage 短信",
+    "description": "通过 Vonage SMS API（原 Nexmo）用短信发送注册、登录和 MFA 验证码。",
+    "guide": {
+      "title": "Vonage 短信：给 Casdoor 发送验证码",
+      "headline": "用 Vonage 发送验证码",
+      "summary": "用你的 Vonage 账号发送 Casdoor 的短信验证码，包括用户注册、用验证码登录、重置密码，以及把短信作为第二步验证时发的验证码。Casdoor 通过 Vonage SMS API 发送每条短信，短信被拒时会报出 Vonage 返回的错误。",
+      "steps": [
+        {
+          "title": "获取 API key 和 secret",
+          "text": "登录 Vonage API Dashboard，复制控制台顶部显示的 **API key** 和 **API secret**。"
+        },
+        {
+          "title": "从集成市场安装 Vonage",
+          "text": "在 Casdoor 的 **集成市场** 页面安装 Vonage，客户端 ID 填 API key，客户端密钥填 API secret。Casdoor 会添加一个同名、类型为 **Plugin** 的短信提供商。"
+        },
+        {
+          "title": "设置发送方和短信内容",
+          "text": "在提供商页面把 **签名名称** 设为发送方：可以是从 Vonage 租用的号码，也可以在目标国家允许时用字母数字发送方 ID（最多 11 个字母和数字）。**模板代码** 是短信内容，验证码的位置写 `%s`；留空时使用下面的默认内容。",
+          "fields": [
+            "签名名称",
+            "模板代码"
+          ]
+        },
+        {
+          "title": "发一条测试短信",
+          "text": "在提供商页面的 **测试短信配置** 旁填上你自己的手机号，发一条测试短信，然后把这个提供商加到应用的 **提供商** 里，按需要设置规则，例如注册、登录或 MFA。"
+        }
+      ],
+      "tips": [
+        "Vonage 试用账号只能发给你在控制台里添加过的测试号码；充值后才能发给任意号码。",
+        "有些国家（例如美国和加拿大）不接受字母数字发送方 ID，有些国家要求先登记发送方或模板。往这些国家发之前，先查看 Vonage 的各国功能说明。",
+        "短信里有 GSM 字母表以外的字符（例如中文或 emoji）时，会按 unicode 发送，一条短信能放下的字符会变少。"
+      ],
+      "faqs": [
+        {
+          "question": "Casdoor 会为此运行来自集成市场的代码吗？",
+          "answer": "会，是一个在 Casdoor 内部沙盒里运行的小型 WebAssembly 模块。它不能读取文件和数据库，只能向 `rest.nexmo.com` 发请求。"
+        },
+        {
+          "question": "用的是 Vonage Verify 吗？",
+          "answer": "不是。验证码由 Casdoor 自己生成和校验，只用 Vonage 发送短信，所以验证码的用法和 Casdoor 其他短信提供商一样。"
+        }
+      ]
+    }
+  },
+  "waves": {
+    "version": "1.0.0",
+    "name": "Waves",
+    "description": "亲切圆润：浅色页面底部有三层你的颜色的波浪，上面是一张柔和的白色卡片，配胶囊形输入框和圆体字。波浪直接用 CSS 绘制，Nunito 字体来自 Google Fonts。组织管理员可以安装。",
+    "variables": {
+      "accentColor": {
+        "label": "主题色",
+        "description": "波浪、按钮、链接和获得焦点的输入框。"
+      }
+    }
+  },
+  "zitadel": {
+    "version": "1.0.0",
+    "name": "ZITADEL",
+    "description": "让用户用 ZITADEL 账号通过 OpenID Connect 登录 Casdoor：包括提供商配置，以及要在 ZITADEL Console 里创建的 Web 应用。",
+    "variables": {
+      "zitadelUrl": {
+        "label": "ZITADEL 地址",
+        "description": "你的 ZITADEL 实例域名，例如 https://acme.zitadel.cloud，末尾不带斜杠。"
+      }
+    },
+    "guide": {
+      "title": "用 ZITADEL 账号登录 Casdoor：OpenID Connect 配置指南",
+      "headline": "用 ZITADEL 登录 Casdoor",
+      "summary": "把 ZITADEL 作为 OpenID Connect 提供商加到 Casdoor 里，自托管和 ZITADEL Cloud 都可以，用户就能用 ZITADEL 账号登录你的 Casdoor 应用。",
+      "steps": [
+        {
+          "title": "创建 Web 应用",
+          "text": "在 ZITADEL Console 里打开应用所属的项目（没有就新建一个），在它的应用列表下点 **New**，选 **Web**。"
+        },
+        {
+          "title": "选 Code 并添加重定向 URI",
+          "text": "认证方式选 **Code**：Casdoor 用 HTTP Basic 认证发送客户端密钥，正是 Code 要求的方式。然后添加重定向 URI：",
+          "fields": [
+            "Redirect URIs"
+          ]
+        },
+        {
+          "title": "复制凭据",
+          "text": "创建应用。ZITADEL 只显示一次 **Client ID** 和 **Client Secret**，现在就把两个都复制下来。"
+        }
+      ],
+      "tips": [
+        "ZITADEL 的 `preferred_username` 是登录名，例如 `alice@acme.zitadel.cloud`，Casdoor 用它作为新用户的用户名。想用别的值，就在 Casdoor 里给 `username` 设置用户映射。",
+        "ZITADEL 只有在 Development 模式下才接受明文 http 的重定向 URI，所以 Casdoor 要用 https。"
+      ],
+      "faqs": [
+        {
+          "question": "需要打开 User Info inside ID Token 吗？",
+          "answer": "不需要。Casdoor 还会调用 ZITADEL 的 userinfo 端点，它会返回姓名和邮箱。"
+        },
+        {
+          "question": "可以改用 PKCE 认证方式吗？",
+          "answer": "这种方式不发客户端密钥，而 Casdoor 的提供商是机密客户端。请用 Code；而且 Casdoor 在发送密钥的同时也会带上 PKCE challenge。"
+        }
+      ]
+    }
+  }
+}

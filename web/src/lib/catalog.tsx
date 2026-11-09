@@ -3,6 +3,7 @@ import { IntegrationCard } from "@/components/integration-card";
 import { translateCategory, translateProviderCategory, translateTag, type Locale } from "@/lib/i18n";
 import { getProviderCategory, getTypeLabel } from "@/lib/provider-categories";
 import { featuredIds, getCollection } from "@/lib/site";
+import { localized } from "@/lib/translations";
 import type { Integration } from "@/lib/types";
 
 export async function toCatalogItems(integrations: Integration[], lang: Locale): Promise<CatalogItem[]> {
@@ -16,14 +17,14 @@ export async function toCatalogItems(integrations: Integration[], lang: Locale):
         : i.categories.map((c) => translateCategory(c, lang));
       const tags = (i.tags ?? []).map((t) => translateTag(t, lang));
       // the English words stay searchable on translated pages
-      const words = [i.name.en, i.description.en, await getTypeLabel(i, lang), ...categories, ...tags];
+      const words = [i.name.en, i.description.en, localized(i.name, lang), localized(i.description, lang), await getTypeLabel(i, lang), ...categories, ...tags];
       if (lang !== "en") {
         words.push(...(providerCategory ? [providerCategory] : i.categories), ...(i.tags ?? []));
       }
       return {
         id: i.id,
         type: getCollection(i.type)?.type ?? i.type,
-        name: i.name.en,
+        name: localized(i.name, lang),
         text: words.join(" ").toLowerCase(),
         categories,
         tags,

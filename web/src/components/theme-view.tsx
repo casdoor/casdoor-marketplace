@@ -3,6 +3,7 @@ import { InlineText } from "@/components/inline-text";
 import { ThemeImport } from "@/components/theme-import";
 import { getMessages, type Locale } from "@/lib/i18n";
 import { getAssetSrc } from "@/lib/integrations";
+import { localized } from "@/lib/translations";
 import type { Integration, Manifest, ThemeTemplate } from "@/lib/types";
 
 export async function ThemeView({
@@ -37,7 +38,7 @@ export async function ThemeView({
         <img
           key={src}
           src={src}
-          alt={m.screenshotAlt(integration.name.en, screenshots.length > 1 ? i + 1 : null)}
+          alt={m.screenshotAlt(localized(integration.name, lang), screenshots.length > 1 ? i + 1 : null)}
           className="w-full rounded-lg border shadow-sm"
         />
       ))}

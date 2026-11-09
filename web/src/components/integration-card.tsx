@@ -6,6 +6,7 @@ import { getMessages, localePath, translateTag, type Locale } from "@/lib/i18n";
 import { getAssetSrc } from "@/lib/integrations";
 import { getTypeLabel } from "@/lib/provider-categories";
 import { getCollection } from "@/lib/site";
+import { localized } from "@/lib/translations";
 import type { Integration } from "@/lib/types";
 
 export async function IntegrationCard({ integration, lang }: { integration: Integration; lang: Locale }) {
@@ -38,7 +39,7 @@ export async function IntegrationCard({ integration, lang }: { integration: Inte
       <div className="flex flex-1 flex-col gap-2 p-5">
         <div className="flex items-center justify-between gap-2">
           <h3 className="flex min-w-0 items-center gap-1 font-semibold">
-            <span className="truncate">{integration.name.en}</span>
+            <span className="truncate">{localized(integration.name, lang)}</span>
             {integration.verified && <BadgeCheck className="size-4 shrink-0 text-primary" aria-label={m.integration.verifiedShort} />}
             {integration.edition && (
               <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
@@ -51,7 +52,7 @@ export async function IntegrationCard({ integration, lang }: { integration: Inte
             {typeLabel}
           </span>
         </div>
-        <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{integration.description.en}</p>
+        <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{localized(integration.description, lang)}</p>
         <div className="mt-auto flex flex-wrap gap-1.5 pt-2">
           {(integration.tags ?? []).slice(0, 3).map((tag) => (
             <span key={tag} className="rounded-md bg-muted px-2 py-0.5 text-xs font-medium text-muted-foreground">

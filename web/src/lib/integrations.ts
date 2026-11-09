@@ -1,4 +1,5 @@
 import type { Locale } from "@/lib/i18n";
+import { translateBundle, translateIntegration } from "@/lib/translations";
 import type { Bundle, Integration, IntegrationIndex } from "@/lib/types";
 
 // The Go backend serves the catalog from the database under /data (index.json and the files of every version); it
@@ -40,7 +41,9 @@ export function languagesOf(integration: Integration): Locale[] {
 export async function getIntegrations(lang?: Locale): Promise<Integration[]> {
   const index = await getIndex();
   const revoked = new Set(index.revoked.map((r) => `${r.id}@${r.version}`));
-  return index.integrations.filter((i) => !revoked.has(`${i.id}@${i.latest}`) && (!lang || languagesOf(i).includes(lang)));
+  return index.integrations
+    .filter((i) => !revoked.has(`${i.id}@${i.latest}`) && (!lang || languagesOf(i).includes(lang)))
+    .map(translateIntegration);
 }
 
 export async function getIntegration(id: string, lang?: Locale): Promise<Integration | undefined> {
@@ -48,12 +51,13 @@ export async function getIntegration(id: string, lang?: Locale): Promise<Integra
   return integrations.find((i) => i.id === id);
 }
 
-export async function getBundle(integration: Integration): Promise<Bundle> {
+// The files of the latest version, with the guide in `lang`.
+export async function getBundle(integration: Integration, lang: Locale = "en"): Promise<Bundle> {
   const version = integration.versions.find((v) => v.version === integration.latest);
   if (!version) {
     throw new Error(`${integration.id}: latest version ${integration.latest} is not in versions`);
   }
-  return readJson(version.url);
+  return translateBundle(integration, await readJson<Bundle>(version.url), lang);
 }
 
 // A logo or screenshot path from index.json.

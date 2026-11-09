@@ -12,6 +12,7 @@ import { getIntegrations } from "@/lib/integrations";
 import { getMessages, htmlLangs, isLocale, localePath, pageUrl, type Locale } from "@/lib/i18n";
 import { jsonLd, pageMetadata } from "@/lib/metadata";
 import { collections, docsUrl, featuredIds, links } from "@/lib/site";
+import { localized } from "@/lib/translations";
 
 // rendered for every request from the catalog in the database (the backend serves it under /data)
 export const dynamic = "force-dynamic";
@@ -90,7 +91,7 @@ export default async function Home({ params }: PageProps<"/[lang]">) {
               <Link
                 key={i.id}
                 href={localePath(lang, `/integrations/${i.id}/`)}
-                title={i.name.en}
+                title={localized(i.name, lang)}
                 className="flex size-12 items-center justify-center rounded-xl bg-white p-2.5 shadow-lg shadow-black/20 transition-transform hover:-translate-y-0.5"
               >
                 <IntegrationLogo integration={i} className="size-7 p-0" />

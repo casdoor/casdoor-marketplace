@@ -9,6 +9,7 @@ import { getIntegrations } from "@/lib/integrations";
 import { breadcrumbList, jsonLd } from "@/lib/metadata";
 import { countProviderCategories, getProviderCategory, type ProviderCategory } from "@/lib/provider-categories";
 import type { Collection } from "@/lib/site";
+import { localized } from "@/lib/translations";
 
 // The browse page of a collection, or of one Casdoor category of the providers, with links to the other categories.
 export async function CollectionView({ lang, collection, category }: { lang: Locale; collection: Collection; category?: ProviderCategory }) {
@@ -40,7 +41,7 @@ export async function CollectionView({ lang, collection, category }: { lang: Loc
         itemListElement: integrations.map((i, n) => ({
           "@type": "ListItem",
           position: n + 1,
-          name: i.name.en,
+          name: localized(i.name, lang),
           url: pageUrl(lang, `/integrations/${i.id}/`),
         })),
       },

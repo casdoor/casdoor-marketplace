@@ -573,7 +573,7 @@ const zh: Messages = {
     sourcesBefore: (name: string, date: string) => `${name} 的设置取自它的官方文档（核对于 ${date}：`,
     sourcesSeparator: "、",
     sourcesAfter: "）",
-    seeAlso: "；另见",
+    seeAlso: "；另见 ",
     casdoorDocs: "Casdoor 文档",
     trademark: (name: string) => `。${name} 是其所有者的商标。`,
 

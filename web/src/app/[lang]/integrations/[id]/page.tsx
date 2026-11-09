@@ -26,6 +26,7 @@ import { getBundle, getIntegration, getIntegrations, languagesOf } from "@/lib/i
 import { breadcrumbList, jsonLd, pageMetadata, type ShareImage } from "@/lib/metadata";
 import { getProviderCategory, getProviderCategoryByName, getTypeLabel } from "@/lib/provider-categories";
 import { docsUrl, getCollection, links } from "@/lib/site";
+import { getTranslation, localized } from "@/lib/translations";
 import type { Integration } from "@/lib/types";
 import { exampleValues, fillVariables } from "@/lib/variables";
 
@@ -49,15 +50,19 @@ export async function generateMetadata({ params }: PageProps<"/[lang]/integratio
   }
 
   const m = getMessages(lang);
-  const guide = (await getBundle(integration)).files["guide.json"];
-  const name = integration.name.en;
-  const title = m.integration.pageTitle(
-    integration.type,
-    name,
-    guide?.title ??
-      (integration.type === "theme" ? m.integration.themeTitle(name) : m.integration.title(name, await getTypeLabel(integration, lang)))
-  );
-  const description = m.integration.pageDescription(integration.type, name, integration.description.en);
+  const guide = (await getBundle(integration, lang)).files["guide.json"];
+  const name = localized(integration.name, lang);
+  // a translated guide brings its own title and the translation its own description
+  const translation = getTranslation(integration.id, lang);
+  const title =
+    translation?.guide?.title ??
+    m.integration.pageTitle(
+      integration.type,
+      name,
+      guide?.title ??
+        (integration.type === "theme" ? m.integration.themeTitle(name) : m.integration.title(name, await getTypeLabel(integration, lang)))
+    );
+  const description = translation?.description ?? m.integration.pageDescription(integration.type, name, localized(integration.description, lang));
   return pageMetadata(lang, `/integrations/${integration.id}/`, title, description, shareImageOf(integration), languagesOf(integration));
 }
 
@@ -70,15 +75,16 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
 
   const m = getMessages(lang);
   const t = m.integration;
-  const bundle = await getBundle(integration);
+  const bundle = await getBundle(integration, lang);
   const { manifest, files } = bundle;
   const guide = files["guide.json"];
   const application = files["application.json"];
   const provider = files["provider.json"];
   const theme = files["theme.json"];
   const values = exampleValues(manifest);
-  const name = integration.name.en;
-  const description = integration.description.en;
+  const name = localized(integration.name, lang);
+  const description = localized(integration.description, lang);
+  const translation = getTranslation(integration.id, lang);
   const url = pageUrl(lang, `/integrations/${integration.id}/`);
   const typeLabel = await getTypeLabel(integration, lang);
   const collection = getCollection(integration.type);
@@ -99,7 +105,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
     {
       "@type": "SoftwareApplication",
       name: t.structuredName(name, typeLabel),
-      description: t.pageDescription(integration.type, name, description),
+      description: translation?.description ?? t.pageDescription(integration.type, name, description),
       inLanguage: htmlLangs[lang],
       applicationCategory: "SecurityApplication",
       softwareVersion: integration.latest,
@@ -195,7 +201,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
                 {m.separator}
                 {typeLabel}
               </p>
-              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{t.headline(integration.type, name, guide?.headline ?? name)}</h1>
+              <h1 className="text-3xl font-semibold tracking-tight sm:text-4xl">{translation?.guide?.headline ?? t.headline(integration.type, name, guide?.headline ?? name)}</h1>
               <p className="max-w-3xl text-lg leading-8 text-muted-foreground">{guide?.summary ?? description}</p>
               <div className="flex flex-wrap items-center gap-2">
                 {integration.verified && (
@@ -240,6 +246,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
             {guide && provider && (
               <GuideView name={name} steps={providerSteps(name, provider, guide, lang)} guide={guide} values={values} lang={lang} />
             )}
+            {guide && integration.type === "action" && <GuideView name={name} steps={guide.steps} guide={guide} values={values} lang={lang} />}
           </div>
 
           {guide?.faqs && guide.faqs.length > 0 && (

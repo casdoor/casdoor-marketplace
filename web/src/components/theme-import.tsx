@@ -5,6 +5,7 @@ import { Check, Copy } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getMessages, type Locale } from "@/lib/i18n";
+import { localized } from "@/lib/translations";
 import type { ThemeTemplate, Variable } from "@/lib/types";
 
 const htmlFields = new Set(["formSideHtml", "footerHtml"]);
@@ -66,12 +67,12 @@ export function ThemeImport({ theme, variables, lang }: { theme: ThemeTemplate; 
         </label>
         {variables.map((v) => (
           <label key={v.name} className="flex flex-col gap-1 text-sm">
-            <span className="font-medium">{v.label.en}</span>
+            <span className="font-medium">{localized(v.label, lang)}</span>
             <div className="flex items-center gap-2">
               {v.type === "color" && (
                 <input
                   type="color"
-                  aria-label={v.label.en}
+                  aria-label={localized(v.label, lang)}
                   value={valid(v) ? values[v.name] : "#000000"}
                   onChange={(e) => setValues({ ...values, [v.name]: e.target.value })}
                   className="h-9 w-10 shrink-0 cursor-pointer rounded-md border bg-transparent p-1"
@@ -83,7 +84,7 @@ export function ThemeImport({ theme, variables, lang }: { theme: ThemeTemplate; 
                 aria-invalid={!valid(v)}
               />
             </div>
-            {v.description && <span className="text-xs text-muted-foreground">{v.description.en}</span>}
+            {v.description && <span className="text-xs text-muted-foreground">{localized(v.description, lang)}</span>}
           </label>
         ))}
       </div>
