@@ -40,6 +40,11 @@ export async function IntegrationCard({ integration, lang }: { integration: Inte
           <h3 className="flex min-w-0 items-center gap-1 font-semibold">
             <span className="truncate">{integration.name.en}</span>
             {integration.verified && <BadgeCheck className="size-4 shrink-0 text-primary" aria-label={m.integration.verifiedShort} />}
+            {integration.edition && (
+              <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+                {m.integration.edition(integration.edition)}
+              </span>
+            )}
           </h3>
           <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
             <TypeIcon type={getCollection(integration.type)?.type ?? integration.type} className="size-3.5" />

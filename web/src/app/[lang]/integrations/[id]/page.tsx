@@ -204,6 +204,11 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
                     {t.verified}
                   </span>
                 )}
+                {integration.edition && (
+                  <span className="rounded-full bg-amber-500/10 px-2.5 py-1 text-xs font-medium text-amber-700 dark:text-amber-400">
+                    {t.edition(integration.edition)}
+                  </span>
+                )}
                 {(integration.tags ?? []).map((tag) => (
                   <span key={tag} className="rounded-full border bg-background px-2.5 py-1 text-xs font-medium text-muted-foreground">
                     {translateTag(tag, lang)}

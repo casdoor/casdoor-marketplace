@@ -24,9 +24,11 @@ type Integration struct {
 	Verified            bool     `json:"verified"`
 	RequiresGlobalAdmin bool     `json:"requiresGlobalAdmin"`
 	Region              string   `xorm:"varchar(20)" json:"region"`
-	Latest              string   `xorm:"varchar(50)" json:"latest"`
-	CreatedTime         string   `xorm:"varchar(100)" json:"createdTime"`
-	UpdatedTime         string   `xorm:"varchar(100)" json:"updatedTime"`
+	// a paid integration, whose files are given only with a license of this edition or higher
+	Edition     string `xorm:"varchar(20)" json:"edition"`
+	Latest      string `xorm:"varchar(50)" json:"latest"`
+	CreatedTime string `xorm:"varchar(100)" json:"createdTime"`
+	UpdatedTime string `xorm:"varchar(100)" json:"updatedTime"`
 }
 
 const (
@@ -71,22 +73,25 @@ type indexVersion struct {
 }
 
 type indexIntegration struct {
-	Id                  string         `json:"id"`
-	Type                string         `json:"type"`
-	Name                indexText      `json:"name"`
-	Description         indexText      `json:"description"`
-	Author              string         `json:"author"`
-	License             string         `json:"license"`
-	Homepage            string         `json:"homepage,omitempty"`
-	Tags                []string       `json:"tags,omitempty"`
-	Categories          []string       `json:"categories"`
-	Logo                string         `json:"logo,omitempty"`
-	Screenshots         []string       `json:"screenshots,omitempty"`
-	Verified            bool           `json:"verified"`
-	RequiresGlobalAdmin bool           `json:"requiresGlobalAdmin,omitempty"`
-	Region              string         `json:"region,omitempty"`
-	Latest              string         `json:"latest"`
-	Versions            []indexVersion `json:"versions"`
+	Id                  string    `json:"id"`
+	Type                string    `json:"type"`
+	Name                indexText `json:"name"`
+	Description         indexText `json:"description"`
+	Author              string    `json:"author"`
+	License             string    `json:"license"`
+	Homepage            string    `json:"homepage,omitempty"`
+	Tags                []string  `json:"tags,omitempty"`
+	Categories          []string  `json:"categories"`
+	Logo                string    `json:"logo,omitempty"`
+	Screenshots         []string  `json:"screenshots,omitempty"`
+	Verified            bool      `json:"verified"`
+	RequiresGlobalAdmin bool      `json:"requiresGlobalAdmin,omitempty"`
+	Region              string    `json:"region,omitempty"`
+	Edition             string    `json:"edition,omitempty"`
+	// in paid-index.json: the license sent can download it, and the checksums are of the files written for it
+	Licensed bool           `json:"licensed,omitempty"`
+	Latest   string         `json:"latest"`
+	Versions []indexVersion `json:"versions"`
 }
 
 type indexRevoked struct {
@@ -108,8 +113,19 @@ func GetVersionFileUrl(id string, version string, path string) string {
 	return fmt.Sprintf("integrations/%s/%s/%s", id, version, path)
 }
 
-// GetIndex builds index.json from the published versions.
-func GetIndex() (*Index, error) {
+// GetIndex builds index.json from the published versions: the free integrations for Casdoor instances, all of them
+// for the site's pages.
+func GetIndex(includePaid bool) (*Index, error) {
+	return getIndex(func(i *Integration) bool { return includePaid || i.Edition == "" }, nil)
+}
+
+// GetPaidIndex builds paid-index.json. With a license, the versions it can download carry the checksums of the files
+// written for it; without one the checksums are left out, since nothing can be downloaded.
+func GetPaidIndex(license *License) (*Index, error) {
+	return getIndex(func(i *Integration) bool { return i.Edition != "" }, license)
+}
+
+func getIndex(include func(i *Integration) bool, license *License) (*Index, error) {
 	var integrations []*Integration
 	err := engine.Find(&integrations)
 	if err != nil {
@@ -128,6 +144,10 @@ func GetIndex() (*Index, error) {
 
 	index := &Index{SchemaVersion: 1, GeneratedAt: time.Now().UTC().Format(time.RFC3339), Integrations: []indexIntegration{}, Revoked: []indexRevoked{}}
 	for _, i := range integrations {
+		if !include(i) {
+			continue
+		}
+		licensed := i.Edition != "" && license.Allows(i.Edition)
 		entry := indexIntegration{
 			Id:                  i.Id,
 			Type:                i.Type,
@@ -143,16 +163,28 @@ func GetIndex() (*Index, error) {
 			Verified:            i.Verified,
 			RequiresGlobalAdmin: i.RequiresGlobalAdmin,
 			Region:              i.Region,
+			Edition:             i.Edition,
+			Licensed:            licensed,
 			Latest:              i.Latest,
 			Versions:            []indexVersion{},
 		}
 		hasLatest := false
 		for _, v := range byId[i.Id] {
+			sha := v.Sha256
+			if i.Edition != "" {
+				sha = ""
+				if licensed {
+					sha, err = getWatermarkedBundleSha256(i.Id, v.Version, license)
+					if err != nil {
+						return nil, err
+					}
+				}
+			}
 			entry.Versions = append(entry.Versions, indexVersion{
 				Version:        v.Version,
 				CasdoorVersion: v.CasdoorVersion,
 				Url:            GetVersionFileUrl(i.Id, v.Version, "bundle.json"),
-				Sha256:         v.Sha256,
+				Sha256:         sha,
 				PublishedAt:    v.PublishedAt,
 			})
 			if v.Status == VersionStatusRevoked {

@@ -1,7 +1,10 @@
 package routers
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -21,12 +24,49 @@ const localDataDir = "web/public/data"
 const indexCacheTtl = 30 * time.Second
 
 var (
-	dataMutex     sync.Mutex
-	indexCache    []byte
-	indexCachedAt time.Time
+	dataMutex sync.Mutex
+	// the free catalog for instances and the full one for the site's pages
+	indexCache    = map[bool][]byte{}
+	indexCachedAt = map[bool]time.Time{}
 	// the files of a version never change, so they are kept once read
 	fileCache = map[string]*object.IntegrationFile{}
 )
+
+// internalToken lets the site's Next.js server, which this process starts, read the files of paid integrations
+// for the pages; anyone else needs a license
+var internalToken = newInternalToken()
+
+func newInternalToken() string {
+	b := make([]byte, 32)
+	if _, err := rand.Read(b); err != nil {
+		panic(err)
+	}
+	return hex.EncodeToString(b)
+}
+
+const (
+	internalHeader = "X-Marketplace-Internal"
+	licenseHeader  = "X-Casdoor-License"
+)
+
+func isInternalRequest(ctx *context.Context) bool {
+	return ctx.Input.Header(internalHeader) == internalToken
+}
+
+// getRequestLicense returns the license a Casdoor instance sent, nil when it sent none, or an error for a bad one
+func getRequestLicense(ctx *context.Context) (*object.License, error) {
+	text := ctx.Input.Header(licenseHeader)
+	if text == "" {
+		return nil, nil
+	}
+	return object.ParseLicense(text)
+}
+
+func writeForbidden(ctx *context.Context, message string) {
+	ctx.ResponseWriter.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	ctx.ResponseWriter.Header().Set("Cache-Control", "no-store")
+	writeBody(ctx, http.StatusForbidden, []byte(message))
+}
 
 // serveData answers /data/index.json and /data/integrations/<id>/<version>/<path>, the catalog Casdoor instances read
 // (marketplaceUrl) and the site's pages are built from.
@@ -46,8 +86,29 @@ func serveData(ctx *context.Context, relPath string) {
 		return
 	}
 
+	if relPath == "paid-index.json" {
+		license, err := getRequestLicense(ctx)
+		if err != nil {
+			writeForbidden(ctx, err.Error())
+			return
+		}
+		index, err := object.GetPaidIndex(license)
+		if err != nil {
+			logs.Error("GetPaidIndex(): %v", err)
+			http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		data, err := json.MarshalIndent(index, "", "  ")
+		if err != nil {
+			http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		writeData(ctx, relPath, data, "private, no-store")
+		return
+	}
+
 	if relPath == "index.json" {
-		data, err := getIndexJson()
+		data, err := getIndexJson(isInternalRequest(ctx))
 		if err != nil {
 			logs.Error("getIndexJson(): %v", err)
 			http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
@@ -72,17 +133,45 @@ func serveData(ctx *context.Context, relPath string) {
 		http.NotFound(ctx.ResponseWriter, ctx.Request)
 		return
 	}
-	writeData(ctx, relPath, file.Content, "public, max-age=86400")
+
+	edition, err := object.GetIntegrationEdition(parts[1])
+	if err != nil {
+		http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	// the logo and screenshots of a paid integration are public, its content needs a license
+	isPublicAsset := strings.HasPrefix(parts[3], "logo.") || strings.HasPrefix(parts[3], "screenshots/")
+	if edition == "" || isPublicAsset || isInternalRequest(ctx) {
+		writeData(ctx, relPath, file.Content, "public, max-age=86400")
+		return
+	}
+
+	license, err := getRequestLicense(ctx)
+	if err != nil {
+		writeForbidden(ctx, err.Error())
+		return
+	}
+	if !license.Allows(edition) {
+		writeForbidden(ctx, fmt.Sprintf("%s needs a Casdoor %s edition license or higher, see https://casdoor.cn/pricing", parts[1], strings.ToLower(edition)))
+		return
+	}
+	content, err := object.WatermarkFile(parts[1], parts[2], parts[3], file.Content, license)
+	if err != nil {
+		http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	object.AddPaidDownload(license, parts[1], parts[2], parts[3], ctx.Input.IP())
+	writeData(ctx, relPath, content, "private, no-store")
 }
 
-func getIndexJson() ([]byte, error) {
+func getIndexJson(includePaid bool) ([]byte, error) {
 	dataMutex.Lock()
 	defer dataMutex.Unlock()
 
-	if indexCache != nil && time.Since(indexCachedAt) < indexCacheTtl {
-		return indexCache, nil
+	if indexCache[includePaid] != nil && time.Since(indexCachedAt[includePaid]) < indexCacheTtl {
+		return indexCache[includePaid], nil
 	}
-	index, err := object.GetIndex()
+	index, err := object.GetIndex(includePaid)
 	if err != nil {
 		return nil, err
 	}
@@ -90,7 +179,7 @@ func getIndexJson() ([]byte, error) {
 	if err != nil {
 		return nil, err
 	}
-	indexCache, indexCachedAt = data, time.Now()
+	indexCache[includePaid], indexCachedAt[includePaid] = data, time.Now()
 	return data, nil
 }
 

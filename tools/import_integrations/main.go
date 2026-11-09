@@ -49,6 +49,7 @@ type integration struct {
 	Verified            bool      `json:"verified"`
 	RequiresGlobalAdmin bool      `json:"requiresGlobalAdmin"`
 	Region              string    `json:"region"`
+	Edition             string    `json:"edition"`
 	Latest              string    `json:"latest"`
 	Versions            []version `json:"versions"`
 }
@@ -102,7 +103,7 @@ func main() {
 			Id: i.Id, Owner: existing.Owner, Type: i.Type, Name: i.Name.En, Description: i.Description.En, Author: i.Author,
 			License: i.License, Homepage: i.Homepage, Logo: i.Logo, Categories: i.Categories, Tags: i.Tags,
 			Screenshots: i.Screenshots, Verified: i.Verified, RequiresGlobalAdmin: i.RequiresGlobalAdmin,
-			Region: i.Region, Latest: i.Latest,
+			Region: i.Region, Edition: i.Edition, Latest: i.Latest,
 			CreatedTime: existing.CreatedTime, UpdatedTime: now,
 		}
 		if !existed {

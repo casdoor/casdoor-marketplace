@@ -71,6 +71,7 @@ func StartFrontend(port int, backendPort int) {
 				"PORT="+strconv.Itoa(port),
 				"HOSTNAME=127.0.0.1",
 				"MARKETPLACE_BACKEND_URL=http://127.0.0.1:"+strconv.Itoa(backendPort),
+				"MARKETPLACE_INTERNAL_TOKEN="+internalToken,
 			)
 			cmd.Stdout = os.Stdout
 			cmd.Stderr = os.Stderr

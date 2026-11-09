@@ -6,8 +6,12 @@ import type { Bundle, Integration, IntegrationIndex } from "@/lib/types";
 // at once.
 export const backendUrl = process.env.MARKETPLACE_BACKEND_URL ?? "http://localhost:18300";
 
+// The pages show the paid integrations too, whose content the backend gives only with this token or a license.
+const internalHeaders: Record<string, string> = process.env.MARKETPLACE_INTERNAL_TOKEN ?
+  { "X-Marketplace-Internal": process.env.MARKETPLACE_INTERNAL_TOKEN } : {};
+
 async function readJson<T>(relativePath: string): Promise<T> {
-  const res = await fetch(`${backendUrl}/data/${relativePath}`, { cache: "no-store" });
+  const res = await fetch(`${backendUrl}/data/${relativePath}`, { cache: "no-store", headers: internalHeaders });
   if (!res.ok) {
     throw new Error(`${relativePath}: ${res.status} ${res.statusText}`);
   }
@@ -16,7 +20,7 @@ async function readJson<T>(relativePath: string): Promise<T> {
 
 // The content of a file of the catalog, such as a logo, for the share images.
 export async function readAsset(relativePath: string): Promise<{ data: ArrayBuffer; contentType: string }> {
-  const res = await fetch(`${backendUrl}/data/${relativePath}`, { cache: "no-store" });
+  const res = await fetch(`${backendUrl}/data/${relativePath}`, { cache: "no-store", headers: internalHeaders });
   if (!res.ok) {
     throw new Error(`${relativePath}: ${res.status} ${res.statusText}`);
   }

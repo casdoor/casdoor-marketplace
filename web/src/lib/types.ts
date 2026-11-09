@@ -30,6 +30,8 @@ export type Integration = {
   verified: boolean;
   // "cn": only listed in Chinese, e.g. sign-in with a platform only used in China
   region?: "cn";
+  // a paid integration, which Casdoor downloads only with a license of this edition or higher
+  edition?: "Commercial" | "Enterprise";
   requiresGlobalAdmin?: boolean;
   latest: string;
   versions: IntegrationVersion[];
