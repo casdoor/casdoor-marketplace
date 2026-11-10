@@ -41,6 +41,15 @@ func GetIntegrationEdition(id string) (string, error) {
 	return integration.Edition, nil
 }
 
+func GetIntegrationVersionPublishedAt(id string, version string) (string, error) {
+	v := &IntegrationVersion{}
+	existed, err := engine.Where("integration_id = ? and version = ?", id, version).Cols("published_at").Get(v)
+	if err != nil || !existed {
+		return "", err
+	}
+	return v.PublishedAt, nil
+}
+
 func getWatermarkedBundleSha256(id string, version string, license *License) (string, error) {
 	file, err := GetIntegrationFile(id, version, "bundle.json")
 	if err != nil || file == nil {

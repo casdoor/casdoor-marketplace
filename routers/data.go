@@ -155,6 +155,17 @@ func serveData(ctx *context.Context, relPath string) {
 		writeForbidden(ctx, fmt.Sprintf("%s needs a Casdoor %s edition license or higher, see https://casdoor.cn/pricing", parts[1], strings.ToLower(edition)))
 		return
 	}
+	if license.IsExpired() {
+		publishedAt, err := object.GetIntegrationVersionPublishedAt(parts[1], parts[2])
+		if err != nil {
+			http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+			return
+		}
+		if !license.AllowsVersion(edition, publishedAt) {
+			writeForbidden(ctx, fmt.Sprintf("the license expired at %s, %s %s was published after it, see https://casdoor.cn/pricing", license.ExpireTime, parts[1], parts[2]))
+			return
+		}
+	}
 	content, err := object.WatermarkFile(parts[1], parts[2], parts[3], file.Content, license)
 	if err != nil {
 		http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)

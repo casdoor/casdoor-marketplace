@@ -168,8 +168,29 @@ func getIndex(include func(i *Integration) bool, license *License) (*Index, erro
 			Latest:              i.Latest,
 			Versions:            []indexVersion{},
 		}
+		versions := byId[i.Id]
+		// an expired license only gets the versions published before it expired, the newest of them as the latest
+		if licensed && license.IsExpired() {
+			covered := []*IntegrationVersion{}
+			latest, latestAt := "", ""
+			for _, v := range versions {
+				if license.AllowsVersion(i.Edition, v.PublishedAt) {
+					covered = append(covered, v)
+					if v.Status == VersionStatusPublished && v.PublishedAt > latestAt {
+						latest, latestAt = v.Version, v.PublishedAt
+					}
+				}
+			}
+			if latest == "" {
+				licensed = false
+				entry.Licensed = false
+			} else {
+				versions = covered
+				entry.Latest = latest
+			}
+		}
 		hasLatest := false
-		for _, v := range byId[i.Id] {
+		for _, v := range versions {
 			sha := v.Sha256
 			if i.Edition != "" {
 				sha = ""
@@ -190,7 +211,7 @@ func getIndex(include func(i *Integration) bool, license *License) (*Index, erro
 			if v.Status == VersionStatusRevoked {
 				index.Revoked = append(index.Revoked, indexRevoked{Id: i.Id, Version: v.Version, Reason: v.StatusReason})
 			}
-			if v.Version == i.Latest {
+			if v.Version == entry.Latest {
 				hasLatest = true
 			}
 		}
