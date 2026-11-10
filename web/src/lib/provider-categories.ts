@@ -28,7 +28,13 @@ export const providerCategories: ProviderCategory[] = [
 ];
 
 // the category of the provider Casdoor adds for each kind of action
-const actionCategories: Record<string, string> = { payment: "Payment", sms: "SMS" };
+const actionCategories: Record<string, string> = {
+  idp: "OAuth",
+  idv: "ID Verification",
+  payment: "Payment",
+  push: "Notification",
+  sms: "SMS",
+};
 
 // a published version never changes, so the category is read from its bundle once
 const categoryByVersion = new Map<string, string>();
