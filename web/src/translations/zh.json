@@ -259,6 +259,49 @@
       }
     }
   },
+  "deepseek-harness": {
+    "version": "1.0.0",
+    "name": "DeepSeek Harness",
+    "description": "让 DeepSeek Harness 以智能体身份登录 Casdoor，经 Casdoor MCP 网关使用你所在组织的 MCP 服务器，工具级授权、调用记录和审计都由 Casdoor 管理，全部在 Casdoor 和 DeepSeek Harness 的网页上完成设置。",
+    "variables": {
+      "appUrl": {
+        "label": "DeepSeek Harness 地址",
+        "description": "打开 DeepSeek Harness 用的地址，结尾不带斜杠。本机的 dsh web 是 http://127.0.0.1:3080，127.0.0.1 和 localhost 的任何端口都可以。"
+      }
+    },
+    "guide": {
+      "title": "DeepSeek Harness 接入 Casdoor",
+      "headline": "经 Casdoor 给 DeepSeek Harness 用上你的 MCP 服务器",
+      "summary": "DeepSeek Harness（dsh）的 Casdoor 插件用授权码模式加 PKCE 让 dsh 登录 Casdoor，列出你所在组织在 Casdoor 里的 MCP 服务器，把你打开的加进 dsh。每次工具调用都以“DeepSeek Harness 智能体代登录用户调用”的身份经过 Casdoor MCP 网关，Casdoor 的工具级授权、调用记录、链路 ID 和身份令牌都照常生效。令牌自动续期。只在 Casdoor 有商业版许可证时运行。",
+      "steps": [
+        {
+          "title": "从集成市场安装",
+          "text": "在 Casdoor 的 **集成市场** 页面安装 **DeepSeek Harness**，填上打开 dsh 用的地址。Casdoor 会建好应用（回调地址 `/casdoor/callback`）和同名的 **智能体**。在已安装集成的 **下载** 里下载 `casdoor-dsh-plugin-1.0.0.tgz`。"
+        },
+        {
+          "title": "在 DeepSeek Harness 里安装插件",
+          "text": "在 dsh 侧栏打开 **插件**，选择添加插件，填下载文件的完整路径，例如 `C:\\Users\\me\\Downloads\\casdoor-dsh-plugin-1.0.0.tgz`。不用网页的话，运行 `dsh plugin --profile web add <文件路径>` 再重启 `dsh web`。"
+        },
+        {
+          "title": "打开连接链接",
+          "text": "在打开 dsh 的浏览器里打开下面的链接。它会打开 dsh 的 **Casdoor** 页面并填好地址、Client ID 和 Client secret，点 **保存并登录** 会跳到 Casdoor。这个页面也在 dsh 的 `/casdoor/`，可以手动填写。"
+        },
+        {
+          "title": "选择 MCP 服务器",
+          "text": "登录后，页面列出你所在组织的 MCP 服务器和放行的工具。打开的服务器以 `mcp__casdoor-<服务器>__<工具>` 出现在 dsh 里并显示连接状态；关掉某个服务器，它的工具就从 dsh 里拿掉。"
+        },
+        {
+          "title": "在 Casdoor 里管控调用",
+          "text": "在组织的安全策略里打开 **记录 MCP 工具调用**，每次调用都会记在 MCP 服务器下，带用户、智能体 **DeepSeek Harness** 和链路 ID。打开服务器的 **工具级授权** 后，每次调用都要有 MCP 工具权限；把智能体加进权限就能决定 dsh 能做什么，智能体能做的不会超过它所代表的用户。在 **智能体** 页面停用这个智能体，dsh 立刻不能再调用。"
+        }
+      ],
+      "tips": [
+        "插件每 10 分钟向 Casdoor 查一次许可证，Casdoor 是开源版时会把 Casdoor 的 MCP 服务器从 dsh 里拿掉。",
+        "Client secret 和令牌存在 dsh 的凭据文件里（dsh 主目录下的 `.credentials.yaml`），不写进配置。",
+        "dsh web 用别的地址打开（例如在反向代理后面）时，要把这个地址加进应用的重定向 URL。"
+      ]
+    }
+  },
   "dracula": {
     "version": "1.0.0",
     "name": "Dracula",
