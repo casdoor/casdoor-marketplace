@@ -260,7 +260,7 @@
     }
   },
   "deepseek-harness": {
-    "version": "1.0.0",
+    "version": "1.0.1",
     "name": "DeepSeek Harness",
     "description": "让 DeepSeek Harness 以智能体身份登录 Casdoor，经 Casdoor MCP 网关使用你所在组织的 MCP 服务器，工具级授权、调用记录和审计都由 Casdoor 管理，全部在 Casdoor 和 DeepSeek Harness 的网页上完成设置。",
     "variables": {
@@ -276,11 +276,11 @@
       "steps": [
         {
           "title": "从集成市场安装",
-          "text": "在 Casdoor 的 **集成市场** 页面安装 **DeepSeek Harness**，填上打开 dsh 用的地址。Casdoor 会建好应用（回调地址 `/casdoor/callback`）和同名的 **智能体**。在已安装集成的 **下载** 里下载 `casdoor-dsh-plugin-1.0.0.tgz`。"
+          "text": "在 Casdoor 的 **集成市场** 页面安装 **DeepSeek Harness**，填上打开 dsh 用的地址。Casdoor 会建好应用（回调地址 `/casdoor/callback`）和同名的 **智能体**。在已安装集成的 **下载** 里下载 `casdoor-dsh-plugin-1.0.1.tgz`。"
         },
         {
           "title": "在 DeepSeek Harness 里安装插件",
-          "text": "在 dsh 侧栏打开 **插件**，选择添加插件，填下载文件的完整路径，例如 `C:\\Users\\me\\Downloads\\casdoor-dsh-plugin-1.0.0.tgz`。不用网页的话，运行 `dsh plugin --profile web add <文件路径>` 再重启 `dsh web`。"
+          "text": "在 dsh 侧栏打开 **插件**，选择添加插件，填下载文件的完整路径，例如 `C:\\Users\\me\\Downloads\\casdoor-dsh-plugin-1.0.1.tgz`。不用网页的话，运行 `dsh plugin --profile web add <文件路径>` 再重启 `dsh web`。"
         },
         {
           "title": "打开连接链接",
