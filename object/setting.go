@@ -3,7 +3,9 @@ package object
 import (
 	"fmt"
 	"html"
+	"net/url"
 	"regexp"
+	"strings"
 	"sync"
 	"time"
 
@@ -21,12 +23,67 @@ type Setting struct {
 type SiteSettings struct {
 	GoogleAnalyticsId string `json:"googleAnalyticsId"`
 	BaiduTongjiId     string `json:"baiduTongjiId"`
+	// CasdeskWidgets has one line per domain: "<page host or *> <Casdesk server URL> <Casdesk site>".
+	CasdeskWidgets string `json:"casdeskWidgets"`
+}
+
+type casdeskWidget struct {
+	host   string
+	server string
+	site   string
 }
 
 var (
 	googleAnalyticsIdRegex = regexp.MustCompile(`^G-[A-Z0-9]{4,20}$`)
 	baiduTongjiIdRegex     = regexp.MustCompile(`^[0-9a-f]{32}$`)
+	casdeskHostRegex       = regexp.MustCompile(`^(\*|[a-z0-9]([a-z0-9.-]*[a-z0-9])?(:[0-9]{1,5})?)$`)
+	casdeskSiteRegex       = regexp.MustCompile(`^[A-Za-z0-9_-]{1,100}$`)
 )
+
+func parseCasdeskWidgets(text string) ([]*casdeskWidget, error) {
+	var res []*casdeskWidget
+	for _, line := range strings.Split(text, "\n") {
+		parts := strings.Fields(line)
+		if len(parts) == 0 {
+			continue
+		}
+		if len(parts) != 3 {
+			return nil, fmt.Errorf("a Casdesk line is \"<domain or *> <Casdesk server URL> <site>\": %s", strings.TrimSpace(line))
+		}
+		host := strings.ToLower(parts[0])
+		if !casdeskHostRegex.MatchString(host) {
+			return nil, fmt.Errorf("not a domain: %s", parts[0])
+		}
+		u, err := url.Parse(parts[1])
+		if err != nil || (u.Scheme != "https" && u.Scheme != "http") || u.Host == "" || u.RawQuery != "" || u.Fragment != "" || u.User != nil {
+			return nil, fmt.Errorf("a Casdesk server URL looks like https://chat.example.com: %s", parts[1])
+		}
+		if !casdeskSiteRegex.MatchString(parts[2]) {
+			return nil, fmt.Errorf("a Casdesk site name has only letters, digits, - and _: %s", parts[2])
+		}
+		res = append(res, &casdeskWidget{host: host, server: strings.TrimRight(u.String(), "/"), site: parts[2]})
+	}
+	return res, nil
+}
+
+// getCasdeskWidget picks the line for the host of the page, or the "*" line when no line names it.
+func getCasdeskWidget(text string, host string) *casdeskWidget {
+	widgets, err := parseCasdeskWidgets(text)
+	if err != nil {
+		return nil
+	}
+	host = strings.ToLower(host)
+	var fallback *casdeskWidget
+	for _, widget := range widgets {
+		if widget.host == host {
+			return widget
+		}
+		if widget.host == "*" && fallback == nil {
+			fallback = widget
+		}
+	}
+	return fallback
+}
 
 // Every node of a site reads the same database, so the cache expires rather than relying on being cleared.
 const settingsCacheTtl = time.Minute
@@ -54,6 +111,8 @@ func GetSiteSettings() (*SiteSettings, error) {
 			settings.GoogleAnalyticsId = row.Value
 		case "baiduTongjiId":
 			settings.BaiduTongjiId = row.Value
+		case "casdeskWidgets":
+			settings.CasdeskWidgets = row.Value
 		}
 	}
 	return settings, nil
@@ -69,11 +128,19 @@ func UpdateSiteSettings(settings *SiteSettings) error {
 	if settings.BaiduTongjiId != "" && !baiduTongjiIdRegex.MatchString(settings.BaiduTongjiId) {
 		return fmt.Errorf("a Baidu Tongji site code is 32 hexadecimal characters, the part after hm.js?")
 	}
+	if len(settings.CasdeskWidgets) > 1000 {
+		return fmt.Errorf("the Casdesk lines are longer than 1000 characters")
+	}
+	_, err := parseCasdeskWidgets(settings.CasdeskWidgets)
+	if err != nil {
+		return err
+	}
 
 	now := time.Now().Format(time.RFC3339)
 	rows := []*Setting{
 		{Name: "googleAnalyticsId", Value: settings.GoogleAnalyticsId, UpdatedTime: now},
 		{Name: "baiduTongjiId", Value: settings.BaiduTongjiId, UpdatedTime: now},
+		{Name: "casdeskWidgets", Value: settings.CasdeskWidgets, UpdatedTime: now},
 	}
 	for _, row := range rows {
 		affected, err := engine.ID(row.Name).AllCols().Update(row)
@@ -113,8 +180,9 @@ func getCachedSiteSettings() *SiteSettings {
 	return settings
 }
 
-// GetAnalyticsHtml returns the scripts of the analytics set in the admin console, to be put into the <head> of pages.
-func GetAnalyticsHtml() string {
+// GetAnalyticsHtml returns the scripts of the analytics and the Casdesk chat set in the admin console, to be put into
+// the <head> of a page of this host and language.
+func GetAnalyticsHtml(host string, lang string) string {
 	settings := getCachedSiteSettings()
 	res := ""
 	if id := settings.GoogleAnalyticsId; googleAnalyticsIdRegex.MatchString(id) {
@@ -124,6 +192,9 @@ func GetAnalyticsHtml() string {
 	}
 	if id := settings.BaiduTongjiId; baiduTongjiIdRegex.MatchString(id) {
 		res += fmt.Sprintf(`<script>var _hmt=_hmt||[];(function(){var hm=document.createElement("script");hm.src="https://hm.baidu.com/hm.js?%s";var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(hm,s);})();</script>`, id)
+	}
+	if widget := getCasdeskWidget(settings.CasdeskWidgets, host); widget != nil {
+		res += fmt.Sprintf(`<script src="%s/widget.js" data-site="%s" data-lang="%s" async></script>`, html.EscapeString(widget.server), html.EscapeString(widget.site), html.EscapeString(lang))
 	}
 	return res
 }

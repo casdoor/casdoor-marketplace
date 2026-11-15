@@ -135,7 +135,7 @@ func modifyFrontendResponse(resp *http.Response) error {
 	_ = resp.Body.Close()
 
 	if strings.HasPrefix(contentType, "text/html") && !strings.HasPrefix(resp.Request.URL.Path, "/admin") {
-		data = injectAnalytics(data)
+		data = injectAnalytics(data, resp.Request.Host, resp.Request.URL.Path)
 	}
 	if frontendCdnUrl != "" {
 		if strings.HasPrefix(contentType, "text/html") {
@@ -159,10 +159,14 @@ func modifyFrontendResponse(resp *http.Response) error {
 	return nil
 }
 
-// injectAnalytics puts the analytics set in the admin console into the <head> of a page. The code has none, so a
-// deployment only reports to the analytics its own admins set.
-func injectAnalytics(data []byte) []byte {
-	analytics := object.GetAnalyticsHtml()
+// injectAnalytics puts the analytics and the Casdesk chat set in the admin console into the <head> of a page. The code
+// has none, so a deployment only reports to the analytics its own admins set.
+func injectAnalytics(data []byte, host string, path string) []byte {
+	lang := "en"
+	if path == "/zh" || strings.HasPrefix(path, "/zh/") {
+		lang = "zh"
+	}
+	analytics := object.GetAnalyticsHtml(host, lang)
 	if analytics == "" {
 		return data
 	}

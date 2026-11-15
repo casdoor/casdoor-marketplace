@@ -10,7 +10,7 @@ type User = { owner: string; name: string; displayName: string; avatar: string; 
 
 type Account = { user: User | null; hasCasdoor: boolean; hasDatabase: boolean };
 
-type Settings = { googleAnalyticsId: string; baiduTongjiId: string };
+type Settings = { googleAnalyticsId: string; baiduTongjiId: string; casdeskWidgets: string };
 
 type Response<T> = { status: "ok" | "error"; msg: string; data: T };
 
@@ -23,7 +23,7 @@ async function api<T>(path: string, body?: unknown): Promise<T> {
   return json.data;
 }
 
-const fields: { key: keyof Settings; label: string; placeholder: string; help: string }[] = [
+const fields: { key: keyof Settings; label: string; placeholder: string; help: string; multiline?: boolean }[] = [
   {
     key: "googleAnalyticsId",
     label: "Google Analytics measurement ID",
@@ -35,6 +35,13 @@ const fields: { key: keyof Settings; label: string; placeholder: string; help: s
     label: "Baidu Tongji site code",
     placeholder: "32 hexadecimal characters",
     help: "The part after hm.js? in the code Baidu Tongji gives for the site.",
+  },
+  {
+    key: "casdeskWidgets",
+    label: "Casdesk chat",
+    placeholder: "marketplace.example.com https://chat.example.com example",
+    help: "One line per domain: the domain of the pages (or * for any other), the Casdesk server and the Casdesk site.",
+    multiline: true,
   },
 ];
 
@@ -153,20 +160,31 @@ export function AdminConsole() {
         {user?.isAdmin && account?.hasDatabase && page === "settings" && settings && (
           <form onSubmit={save} className="flex flex-col gap-6">
             <div>
-              <h1 className="text-xl font-semibold">Analytics</h1>
+              <h1 className="text-xl font-semibold">Analytics and chat</h1>
               <p className="mt-1 text-sm leading-6 text-muted-foreground">
-                The site reports to these on every public page. Leave a field empty to turn it off.
+                The site puts these on every public page. Leave a field empty to turn it off.
               </p>
             </div>
             {fields.map((f) => (
               <label key={f.key} className="flex flex-col gap-1.5">
                 <span className="text-sm font-medium">{f.label}</span>
-                <Input
-                  value={settings[f.key]}
-                  placeholder={f.placeholder}
-                  spellCheck={false}
-                  onChange={(e) => setSettings({ ...settings, [f.key]: e.target.value })}
-                />
+                {f.multiline ? (
+                  <textarea
+                    value={settings[f.key] ?? ""}
+                    placeholder={f.placeholder}
+                    spellCheck={false}
+                    rows={3}
+                    className="w-full min-w-0 rounded-lg border border-input bg-transparent px-2.5 py-1.5 font-mono text-sm outline-none placeholder:text-muted-foreground focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50 dark:bg-input/30"
+                    onChange={(e) => setSettings({ ...settings, [f.key]: e.target.value })}
+                  />
+                ) : (
+                  <Input
+                    value={settings[f.key] ?? ""}
+                    placeholder={f.placeholder}
+                    spellCheck={false}
+                    onChange={(e) => setSettings({ ...settings, [f.key]: e.target.value })}
+                  />
+                )}
                 <span className="text-xs text-muted-foreground">{f.help}</span>
               </label>
             ))}
