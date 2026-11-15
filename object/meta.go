@@ -1,5 +1,7 @@
 package object
 
+import "time"
+
 // VersionMeta is what Casdoor checks with the Marketplace before installing a version: the bundle it gets from the CDN
 // must have this checksum, and a version revoked since the CDN copy of the catalog was built must not be installed.
 // The Marketplace database is the authority; the CDN copy may be days old.
@@ -53,4 +55,24 @@ func GetVersionMeta(id string, version string, license *License) (*VersionMeta, 
 		}
 	}
 	return meta, nil
+}
+
+// Status is what Casdoor reads each time an admin opens its Marketplace page: the versions withdrawn right now, free
+// and paid, which the CDN copy of the catalog may not have yet
+type Status struct {
+	GeneratedAt string         `json:"generatedAt"`
+	Revoked     []indexRevoked `json:"revoked"`
+}
+
+func GetStatus() (*Status, error) {
+	versions := []*IntegrationVersion{}
+	err := engine.Where("status = ?", VersionStatusRevoked).Asc("integration_id", "version").Find(&versions)
+	if err != nil {
+		return nil, err
+	}
+	status := &Status{GeneratedAt: time.Now().UTC().Format(time.RFC3339), Revoked: []indexRevoked{}}
+	for _, v := range versions {
+		status.Revoked = append(status.Revoked, indexRevoked{Id: v.IntegrationId, Version: v.Version, Reason: v.StatusReason})
+	}
+	return status, nil
 }

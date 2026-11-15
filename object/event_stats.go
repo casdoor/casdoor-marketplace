@@ -33,6 +33,9 @@ type IntegrationStat struct {
 	PageViews int64 `json:"pageViews"`
 	Visitors  int64 `json:"visitors"`
 	Clicks    int64 `json:"clicks"`
+	// the Casdoor instances that opened it in their Marketplace page (meta.json with step=view), and from how many addresses
+	Views         int64 `json:"views"`
+	ViewAddresses int64 `json:"viewAddresses"`
 	// the Casdoor instances that read its meta.json to install it, and from how many addresses
 	Installs         int64 `json:"installs"`
 	InstallAddresses int64 `json:"installAddresses"`
@@ -57,6 +60,8 @@ type CatalogClient struct {
 	ClientIp      string `json:"clientIp"`
 	UserAgent     string `json:"userAgent"`
 	Fetches       int64  `json:"fetches"`
+	Browses       int64  `json:"browses"`
+	Views         int64  `json:"views"`
 	Installs      int64  `json:"installs"`
 	Installed     int64  `json:"installed"`
 	InstallFailed int64  `json:"installFailed"`
@@ -225,6 +230,9 @@ func getIntegrationStats(since string) ([]*IntegrationStat, error) {
 			stat.Visitors += parseInt64(row["visitors"])
 		case "site/click", "site/copy":
 			stat.Clicks += count
+		case "data/view":
+			stat.Views += count
+			stat.ViewAddresses += parseInt64(row["addresses"])
 		case "data/install":
 			stat.Installs += count
 			stat.InstallAddresses += parseInt64(row["addresses"])
@@ -249,6 +257,9 @@ func getIntegrationStats(since string) ([]*IntegrationStat, error) {
 		if a.Installs != b.Installs {
 			return a.Installs > b.Installs
 		}
+		if a.Views != b.Views {
+			return a.Views > b.Views
+		}
 		if a.PageViews != b.PageViews {
 			return a.PageViews > b.PageViews
 		}
@@ -263,7 +274,7 @@ func getIntegrationStats(since string) ([]*IntegrationStat, error) {
 // GetCatalogClients lists the addresses that fetched the catalog from /data in the last days, the latest first
 func GetCatalogClients(days int) ([]*CatalogClient, error) {
 	rows, err := engine.QueryString(`select client_ip, max(user_agent) as user_agent, sum(action = 'index') as fetches,
-		sum(action = 'install') as installs, sum(action = 'installed') as installed, sum(action = 'install_failed') as install_failed,
+		sum(action = 'browse') as browses, sum(action = 'view') as views, sum(action = 'install') as installs, sum(action = 'installed') as installed, sum(action = 'install_failed') as install_failed,
 		sum(action = 'uninstalled') as uninstalled, sum(action = 'download') as downloads, count(distinct left(created_time, 10)) as days, min(created_time) as first_seen,
 		max(created_time) as last_seen, max(license_id) as license_id, group_concat(distinct host) as hosts from event
 		where source = 'data' and created_time >= ? group by client_ip order by last_seen desc limit 500`, getSince(days))
@@ -274,6 +285,7 @@ func GetCatalogClients(days int) ([]*CatalogClient, error) {
 	for _, row := range rows {
 		res = append(res, &CatalogClient{
 			ClientIp: row["client_ip"], UserAgent: row["user_agent"], Fetches: parseInt64(row["fetches"]),
+			Browses: parseInt64(row["browses"]), Views: parseInt64(row["views"]),
 			Installs: parseInt64(row["installs"]), Installed: parseInt64(row["installed"]), InstallFailed: parseInt64(row["install_failed"]),
 			Uninstalled: parseInt64(row["uninstalled"]), Downloads: parseInt64(row["downloads"]), Days: parseInt64(row["days"]), FirstSeen: row["first_seen"],
 			LastSeen: row["last_seen"], LicenseId: row["license_id"], Hosts: row["hosts"],

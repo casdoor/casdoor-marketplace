@@ -28,6 +28,9 @@ var (
 	// the free catalog for instances and the full one for the site's pages
 	indexCache    = map[bool][]byte{}
 	indexCachedAt = map[bool]time.Time{}
+	// the versions withdrawn right now, for status.json
+	statusCache    []byte
+	statusCachedAt time.Time
 	// the files of a version never change, so they are kept once read
 	fileCache = map[string]*object.IntegrationFile{}
 )
@@ -105,6 +108,11 @@ func serveData(ctx *context.Context, relPath string) {
 		}
 		recordDataEvent(ctx, "index", "", "", relPath, license)
 		writeData(ctx, relPath, data, "private, no-store")
+		return
+	}
+
+	if relPath == "status.json" {
+		serveStatus(ctx)
 		return
 	}
 
@@ -187,6 +195,25 @@ func serveData(ctx *context.Context, relPath string) {
 	writeData(ctx, relPath, content, "private, no-store")
 }
 
+// serveStatus answers /data/status.json, which Casdoor reads each time an admin opens its Marketplace page: the versions
+// withdrawn right now, which the CDN copy of the catalog may not have yet. Each read is counted as a browse.
+func serveStatus(ctx *context.Context) {
+	data, err := getStatusJson()
+	if err != nil {
+		logs.Error("getStatusJson(): %v", err)
+		http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !isInternalRequest(ctx) {
+		license, err := getRequestLicense(ctx)
+		if err != nil {
+			license = nil
+		}
+		recordDataEvent(ctx, "browse", "", "", "status.json", license)
+	}
+	writeData(ctx, "status.json", data, "no-store")
+}
+
 // the steps Casdoor reads meta.json again for, with ?step=, and the actions they are recorded as
 var metaStepActions = map[string]string{
 	"installed":   "installed",
@@ -200,10 +227,14 @@ var metaFailStages = map[string]bool{"revoked": true, "download": true, "variabl
 // serveVersionMeta answers /data/integrations/<id>/<version>/meta.json, which Casdoor reads before installing a version
 // it got from the CDN: the checksum the bundle must have and whether the version is still published. It is never cached,
 // so a revocation takes effect at once; each read is counted as an install. Casdoor reads it again with ?step= when the
-// install has ended (installed, or failed with ?stage=) and when the version is uninstalled.
+// install has ended (installed, or failed with ?stage=) and when the version is uninstalled. It also reads it with
+// ?step=view when an admin opens the integration in its Marketplace page, which is counted as a view.
 func serveVersionMeta(ctx *context.Context, id string, version string) {
 	step := ctx.Input.Query("step")
-	if step != "" {
+	action := "install"
+	if step == "view" {
+		action = "view"
+	} else if step != "" {
 		serveVersionMetaStep(ctx, id, version, step)
 		return
 	}
@@ -229,7 +260,7 @@ func serveVersionMeta(ctx *context.Context, id string, version string) {
 		return
 	}
 	if !isInternalRequest(ctx) {
-		recordDataEvent(ctx, "install", id, version, "meta.json", license)
+		recordDataEvent(ctx, action, id, version, "meta.json", license)
 	}
 	writeData(ctx, "meta.json", data, "no-store")
 }
@@ -320,6 +351,25 @@ func getIndexJson(includePaid bool) ([]byte, error) {
 		return nil, err
 	}
 	indexCache[includePaid], indexCachedAt[includePaid] = data, time.Now()
+	return data, nil
+}
+
+func getStatusJson() ([]byte, error) {
+	dataMutex.Lock()
+	defer dataMutex.Unlock()
+
+	if statusCache != nil && time.Since(statusCachedAt) < indexCacheTtl {
+		return statusCache, nil
+	}
+	status, err := object.GetStatus()
+	if err != nil {
+		return nil, err
+	}
+	data, err := json.Marshal(status)
+	if err != nil {
+		return nil, err
+	}
+	statusCache, statusCachedAt = data, time.Now()
 	return data, nil
 }
 

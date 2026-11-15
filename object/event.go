@@ -13,7 +13,9 @@ import (
 
 // Event is one thing someone did with the Marketplace: a page they opened or a link they clicked on the site, or a file
 // a Casdoor instance or anyone else downloaded from /data, including the meta.json Casdoor reads to install a version
-// and reads again, with only the step in the address, when the install has ended and when the version is uninstalled.
+// and reads again, with only the step in the address, when the install has ended and when the version is uninstalled,
+// the meta.json it reads with step=view when an admin opens an integration in its Marketplace page, and the status.json
+// it reads each time an admin opens that page.
 type Event struct {
 	Id          int64  `xorm:"pk autoincr" json:"id"`
 	CreatedTime string `xorm:"varchar(100) index" json:"createdTime"`

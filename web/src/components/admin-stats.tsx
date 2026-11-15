@@ -26,6 +26,8 @@ type IntegrationStat = {
   pageViews: number;
   visitors: number;
   clicks: number;
+  views: number;
+  viewAddresses: number;
   installs: number;
   installAddresses: number;
   installed: number;
@@ -80,6 +82,8 @@ type CatalogClient = {
   clientIp: string;
   userAgent: string;
   fetches: number;
+  browses: number;
+  views: number;
   installs: number;
   installed: number;
   installFailed: number;
@@ -162,6 +166,8 @@ const dailySeries: { key: string; label: string }[] = [
   { key: "site/click", label: "Clicks" },
   { key: "site/copy", label: "Copies" },
   { key: "site/filter", label: "Filters" },
+  { key: "data/browse", label: "Casdoor browses" },
+  { key: "data/view", label: "Casdoor views" },
   { key: "data/install", label: "Installs" },
   { key: "data/installed", label: "Installed" },
   { key: "data/install_failed", label: "Failed" },
@@ -228,6 +234,8 @@ function DailyTable({ daily, days, since }: { daily: DailyCount[]; days: number;
 type SortKey = keyof IntegrationStat;
 
 const integrationColumns: { key: SortKey; label: string; title: string }[] = [
+  { key: "views", label: "Casdoor views", title: "Admins who opened it in the Marketplace page of their Casdoor (meta.json with step=view)" },
+  { key: "viewAddresses", label: "Viewed by", title: "The addresses whose Casdoor opened it" },
   { key: "installs", label: "Installs", title: "Installs started: Casdoor reads its meta.json from this site before installing a version" },
   { key: "installAddresses", label: "By", title: "The addresses that installed it" },
   { key: "installed", label: "Installed", title: "Installs that succeeded" },
@@ -346,9 +354,11 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
 
           <Section
             title="Downloads"
-            note="What Casdoor instances and others fetched from /data on this site. Casdoor reads an integration's meta.json here before installing it (an install), again when the install has ended (installed or failed) and when it is uninstalled, with only the integration, the version and the step in the address. It gets the free catalog and bundles from jsDelivr by default, so those mostly show in jsDelivr's public statistics."
+            note="What Casdoor instances and others fetched from /data on this site. Each time an admin opens the Marketplace page of a Casdoor, it reads status.json here (a browse), and when they open an integration, its meta.json with step=view (a view). Casdoor reads an integration's meta.json here before installing it (an install), again when the install has ended (installed or failed) and when it is uninstalled, with only the integration, the version and the step in the address. It gets the free catalog and bundles from jsDelivr by default, so those mostly show in jsDelivr's public statistics."
           >
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
+              <Tile label="Casdoor browses" value={fmt(sum(actions, "data", "browse"))} hint={`Marketplace page opened, from ${fmt(sum(actions, "data", "browse", "addresses"))} addresses`} />
+              <Tile label="Casdoor views" value={fmt(sum(actions, "data", "view"))} hint={`integrations opened, from ${fmt(sum(actions, "data", "view", "addresses"))} addresses`} />
               <Tile label="Installs" value={fmt(sum(actions, "data", "install"))} hint={`from ${fmt(sum(actions, "data", "install", "addresses"))} addresses`} />
               <Tile label="Installed" value={fmt(sum(actions, "data", "installed"))} hint={`from ${fmt(sum(actions, "data", "installed", "addresses"))} addresses`} />
               <Tile label="Failed installs" value={fmt(sum(actions, "data", "install_failed"))} hint={`from ${fmt(sum(actions, "data", "install_failed", "addresses"))} addresses`} />
@@ -399,9 +409,9 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
 
 const sources = ["", "site", "data"];
 const actionsBySource: Record<string, string[]> = {
-  "": ["", "page_view", "search", "filter", "click", "copy", "signin", "install", "installed", "install_failed", "uninstalled", "index", "download"],
+  "": ["", "page_view", "search", "filter", "click", "copy", "signin", "browse", "view", "install", "installed", "install_failed", "uninstalled", "index", "download"],
   site: ["", "page_view", "search", "filter", "click", "copy", "signin"],
-  data: ["", "install", "installed", "install_failed", "uninstalled", "index", "download"],
+  data: ["", "browse", "view", "install", "installed", "install_failed", "uninstalled", "index", "download"],
 };
 
 export type EventQuery = { source: string; action: string; integrationId: string; clientIp: string; visitorId: string; includeBots: boolean };
@@ -597,6 +607,8 @@ function CatalogClients({ onPick }: { onPick: (clientIp: string) => void }) {
                 <th className="px-3 py-2 text-left font-medium">Address</th>
                 <th className="px-2 py-2 text-left font-medium">Client</th>
                 <th className="px-2 py-2 text-right font-medium">Catalog fetches</th>
+                <th className="px-2 py-2 text-right font-medium">Browses</th>
+                <th className="px-2 py-2 text-right font-medium">Views</th>
                 <th className="px-2 py-2 text-right font-medium">Installs</th>
                 <th className="px-2 py-2 text-right font-medium">Installed</th>
                 <th className="px-2 py-2 text-right font-medium">Failed</th>
@@ -621,6 +633,8 @@ function CatalogClients({ onPick }: { onPick: (clientIp: string) => void }) {
                     {r.userAgent}
                   </td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{fmt(r.fetches)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{r.browses ? fmt(r.browses) : ""}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{r.views ? fmt(r.views) : ""}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{r.installs ? fmt(r.installs) : ""}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{r.installed ? fmt(r.installed) : ""}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{r.installFailed ? fmt(r.installFailed) : ""}</td>
