@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AdminDashboard } from "@/components/admin-dashboard";
 import { AdminStats } from "@/components/admin-stats";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -53,7 +54,7 @@ export function AdminConsole() {
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
-  const [page, setPage] = useState<"statistics" | "settings">("statistics");
+  const [page, setPage] = useState<"dashboard" | "statistics" | "settings">("dashboard");
 
   useEffect(() => {
     api<Account>("/api/get-account")
@@ -103,9 +104,9 @@ export function AdminConsole() {
           <div className="flex items-center gap-3 text-sm">
             {user.isAdmin && account?.hasDatabase && (
               <nav className="mr-2 flex gap-1">
-                {(["statistics", "settings"] as const).map((p) => (
+                {(["dashboard", "statistics", "settings"] as const).map((p) => (
                   <Button key={p} variant={page === p ? "secondary" : "ghost"} size="sm" onClick={() => setPage(p)}>
-                    {p === "statistics" ? "Statistics" : "Settings"}
+                    {p === "dashboard" ? "Dashboard" : p === "statistics" ? "Statistics" : "Settings"}
                   </Button>
                 ))}
               </nav>
@@ -154,6 +155,8 @@ export function AdminConsole() {
             and restart the site.
           </p>
         )}
+
+        {user?.isAdmin && account?.hasDatabase && page === "dashboard" && <AdminDashboard />}
 
         {user?.isAdmin && account?.hasDatabase && page === "statistics" && <AdminStats />}
 

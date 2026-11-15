@@ -22,4 +22,5 @@ func init() {
 	beego.Router("/api/get-event-stats", &controllers.ApiController{}, "GET:GetEventStats")
 	beego.Router("/api/get-events", &controllers.ApiController{}, "GET:GetEvents")
 	beego.Router("/api/get-catalog-clients", &controllers.ApiController{}, "GET:GetCatalogClients")
+	beego.Router("/api/get-dashboard", &controllers.ApiController{}, "GET:GetDashboard")
 }
