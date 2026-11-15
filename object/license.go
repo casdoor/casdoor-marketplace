@@ -54,7 +54,7 @@ func ParseLicense(text string) (*License, error) {
 	if err != nil {
 		return nil, fmt.Errorf("the license is malformed")
 	}
-	if editionRanks[license.Edition] == 0 {
+	if _, ok := editionRanks[license.Edition]; !ok {
 		return nil, fmt.Errorf("the license has an unknown edition: %s", license.Edition)
 	}
 	if license.ExpireTime != "" {
