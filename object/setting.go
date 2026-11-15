@@ -1,6 +1,7 @@
 package object
 
 import (
+	"encoding/json"
 	"fmt"
 	"html"
 	"net/url"
@@ -194,7 +195,12 @@ func GetAnalyticsHtml(host string, lang string) string {
 		res += fmt.Sprintf(`<script>var _hmt=_hmt||[];(function(){var hm=document.createElement("script");hm.src="https://hm.baidu.com/hm.js?%s";var s=document.getElementsByTagName("script")[0];s.parentNode.insertBefore(hm,s);})();</script>`, id)
 	}
 	if widget := getCasdeskWidget(settings.CasdeskWidgets, host); widget != nil {
-		res += fmt.Sprintf(`<script src="%s/widget.js" data-site="%s" data-lang="%s" async></script>`, html.EscapeString(widget.server), html.EscapeString(widget.site), html.EscapeString(lang))
+		// The widget adds its element to <body>, so it loads once React has hydrated the page; otherwise the hydration
+		// mismatch makes React render the page again and drop the widget.
+		src, _ := json.Marshal(widget.server + "/widget.js")
+		site, _ := json.Marshal(widget.site)
+		language, _ := json.Marshal(lang)
+		res += fmt.Sprintf(`<script>(function(){function l(){var s=document.createElement("script");s.src=%s;s.async=true;s.setAttribute("data-site",%s);s.setAttribute("data-lang",%s);document.body.appendChild(s)}function i(){(window.requestIdleCallback||setTimeout)(l)}if(document.readyState==="complete")i();else addEventListener("load",i)})()</script>`, src, site, language)
 	}
 	return res
 }
