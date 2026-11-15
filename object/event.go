@@ -12,8 +12,8 @@ import (
 )
 
 // Event is one thing someone did with the Marketplace: a page they opened or a link they clicked on the site, or a file
-// a Casdoor instance or anyone else downloaded from /data. Only what reaches this site is recorded: Casdoor does not
-// report anything.
+// a Casdoor instance or anyone else downloaded from /data, including the meta.json Casdoor reads to install a version.
+// Only what reaches this site is recorded: Casdoor does not report anything.
 type Event struct {
 	Id          int64  `xorm:"pk autoincr" json:"id"`
 	CreatedTime string `xorm:"varchar(100) index" json:"createdTime"`

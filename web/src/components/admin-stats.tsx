@@ -26,6 +26,8 @@ type IntegrationStat = {
   pageViews: number;
   visitors: number;
   clicks: number;
+  installs: number;
+  installAddresses: number;
   downloads: number;
   downloadAddresses: number;
   cdnHits: number;
@@ -72,6 +74,7 @@ type CatalogClient = {
   clientIp: string;
   userAgent: string;
   fetches: number;
+  installs: number;
   downloads: number;
   days: number;
   firstSeen: string;
@@ -150,6 +153,7 @@ const dailySeries: { key: string; label: string }[] = [
   { key: "site/click", label: "Clicks" },
   { key: "site/copy", label: "Copies" },
   { key: "site/filter", label: "Filters" },
+  { key: "data/install", label: "Installs" },
   { key: "data/download", label: "File downloads" },
   { key: "data/index", label: "Catalog fetches" },
 ];
@@ -212,6 +216,8 @@ function DailyTable({ daily, days, since }: { daily: DailyCount[]; days: number;
 type SortKey = keyof IntegrationStat;
 
 const integrationColumns: { key: SortKey; label: string; title: string }[] = [
+  { key: "installs", label: "Installs", title: "Installs: Casdoor reads its meta.json from this site before installing a version" },
+  { key: "installAddresses", label: "By", title: "The addresses that installed it" },
   { key: "pageViews", label: "Page views", title: "Views of its page on this site" },
   { key: "visitors", label: "Visitors", title: "Daily unique visitors of its page, summed" },
   { key: "clicks", label: "Clicks", title: "Clicks and copies on its page" },
@@ -221,7 +227,7 @@ const integrationColumns: { key: SortKey; label: string; title: string }[] = [
 ];
 
 function IntegrationTable({ rows, onPick }: { rows: IntegrationStat[]; onPick: (id: string) => void }) {
-  const [sort, setSort] = useState<SortKey>("pageViews");
+  const [sort, setSort] = useState<SortKey>("installs");
   const [filter, setFilter] = useState("");
   const shown = useMemo(() => {
     const f = filter.trim().toLowerCase();
@@ -325,9 +331,10 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
 
           <Section
             title="Downloads"
-            note="What Casdoor instances and others fetched from /data on this site. Casdoor gets the free catalog from jsDelivr by default, so most of it only shows in jsDelivr's public statistics."
+            note="What Casdoor instances and others fetched from /data on this site. Casdoor reads an integration's meta.json here before installing it (an install), and gets the free catalog and bundles from jsDelivr by default, so those mostly show in jsDelivr's public statistics."
           >
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+              <Tile label="Installs" value={fmt(sum(actions, "data", "install"))} hint={`from ${fmt(sum(actions, "data", "install", "addresses"))} addresses`} />
               <Tile label="Catalog fetches" value={fmt(sum(actions, "data", "index"))} hint={`from ${fmt(sum(actions, "data", "index", "addresses"))} addresses`} />
               <Tile label="File downloads" value={fmt(sum(actions, "data", "download"))} hint={`from ${fmt(sum(actions, "data", "download", "addresses"))} addresses`} />
               <Tile label={`jsDelivr catalog (${stats.cdn.period})`} value={stats.cdn.error ? "—" : fmt(stats.cdn.indexHits)} hint={stats.cdn.error || undefined} />
@@ -371,9 +378,9 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
 
 const sources = ["", "site", "data"];
 const actionsBySource: Record<string, string[]> = {
-  "": ["", "page_view", "search", "filter", "click", "copy", "signin", "index", "download"],
+  "": ["", "page_view", "search", "filter", "click", "copy", "signin", "install", "index", "download"],
   site: ["", "page_view", "search", "filter", "click", "copy", "signin"],
-  data: ["", "index", "download"],
+  data: ["", "install", "index", "download"],
 };
 
 export type EventQuery = { source: string; action: string; integrationId: string; clientIp: string; visitorId: string; includeBots: boolean };
@@ -569,6 +576,7 @@ function CatalogClients({ onPick }: { onPick: (clientIp: string) => void }) {
                 <th className="px-3 py-2 text-left font-medium">Address</th>
                 <th className="px-2 py-2 text-left font-medium">Client</th>
                 <th className="px-2 py-2 text-right font-medium">Catalog fetches</th>
+                <th className="px-2 py-2 text-right font-medium">Installs</th>
                 <th className="px-2 py-2 text-right font-medium">Downloads</th>
                 <th className="px-2 py-2 text-right font-medium">Days</th>
                 <th className="px-2 py-2 text-left font-medium">First seen</th>
@@ -589,6 +597,7 @@ function CatalogClients({ onPick }: { onPick: (clientIp: string) => void }) {
                     {r.userAgent}
                   </td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{fmt(r.fetches)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{r.installs ? fmt(r.installs) : ""}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{r.downloads ? fmt(r.downloads) : ""}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{r.days}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap tabular-nums">{r.firstSeen}</td>

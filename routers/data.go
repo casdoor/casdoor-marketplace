@@ -127,6 +127,10 @@ func serveData(ctx *context.Context, relPath string) {
 		http.NotFound(ctx.ResponseWriter, ctx.Request)
 		return
 	}
+	if parts[3] == "meta.json" {
+		serveVersionMeta(ctx, parts[1], parts[2])
+		return
+	}
 	file, err := getIntegrationFile(parts[1], parts[2], parts[3])
 	if err != nil {
 		logs.Error("getIntegrationFile(): %v", err)
@@ -181,6 +185,36 @@ func serveData(ctx *context.Context, relPath string) {
 	object.AddPaidDownload(license, parts[1], parts[2], parts[3], ctx.Input.IP())
 	recordDataEvent(ctx, "download", parts[1], parts[2], parts[3], license)
 	writeData(ctx, relPath, content, "private, no-store")
+}
+
+// serveVersionMeta answers /data/integrations/<id>/<version>/meta.json, which Casdoor reads before installing a version
+// it got from the CDN: the checksum the bundle must have and whether the version is still published. It is never cached,
+// so a revocation takes effect at once; each read is counted as an install.
+func serveVersionMeta(ctx *context.Context, id string, version string) {
+	license, err := getRequestLicense(ctx)
+	if err != nil {
+		writeForbidden(ctx, err.Error())
+		return
+	}
+	meta, err := object.GetVersionMeta(id, version, license)
+	if err != nil {
+		logs.Error("GetVersionMeta(): %v", err)
+		http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if meta == nil {
+		http.NotFound(ctx.ResponseWriter, ctx.Request)
+		return
+	}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !isInternalRequest(ctx) {
+		recordDataEvent(ctx, "install", id, version, "meta.json", license)
+	}
+	writeData(ctx, "meta.json", data, "no-store")
 }
 
 // the logos and screenshots the pages show are not downloads of an integration
