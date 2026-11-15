@@ -222,11 +222,11 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
                 ))}
               </div>
               <div className="mt-2 flex flex-wrap gap-3">
-                <a href="#setup" className={buttonVariants({ size: "lg" })}>
+                <a href="#setup" data-track="setup" data-track-id={integration.id} className={buttonVariants({ size: "lg" })}>
                   {integration.type === "theme" ? t.applyTheme : t.setUp}
                   <ArrowRight />
                 </a>
-                <a href={sourceUrl} className={buttonVariants({ size: "lg", variant: "outline" })}>
+                <a href={sourceUrl} data-track="source" data-track-id={integration.id} className={buttonVariants({ size: "lg", variant: "outline" })}>
                   <GitHubIcon className="size-4" />
                   {t.viewSource}
                 </a>
@@ -238,7 +238,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
 
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:px-6 lg:grid-cols-[1fr_20rem]">
         <div className="flex min-w-0 flex-col gap-14">
-          <div id="setup" className="scroll-mt-24">
+          <div id="setup" data-track-copy="setup" className="scroll-mt-24">
             {theme && <ThemeView integration={integration} manifest={manifest} theme={theme} lang={lang} />}
             {guide && application && (
               <GuideView name={name} steps={appSteps(name, application, guide, lang)} guide={guide} values={values} lang={lang} />
@@ -276,7 +276,7 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
               {t.install}
             </h2>
             <p className="mt-2 text-sm leading-6 text-muted-foreground">{t.installText}</p>
-            <a href="#setup" className={buttonVariants({ className: "mt-4 w-full" })}>
+            <a href="#setup" data-track="install-box" data-track-id={integration.id} className={buttonVariants({ className: "mt-4 w-full" })}>
               {integration.type === "theme" ? t.applyTheme : t.goToSteps}
             </a>
           </div>
@@ -293,17 +293,19 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
             </dl>
             <div className="mt-4 flex flex-col gap-2 border-t pt-4 text-sm">
               {integration.homepage && (
-                <a href={integration.homepage} rel="noopener" className="flex items-center justify-between text-muted-foreground hover:text-foreground">
+                <a href={integration.homepage} rel="noopener" data-track="homepage" data-track-id={integration.id} className="flex items-center justify-between text-muted-foreground hover:text-foreground">
                   {new URL(integration.homepage).hostname}
                   <ExternalLink className="size-3.5" />
                 </a>
               )}
-              <a href={sourceUrl} className="flex items-center justify-between text-muted-foreground hover:text-foreground">
+              <a href={sourceUrl} data-track="source" data-track-id={integration.id} className="flex items-center justify-between text-muted-foreground hover:text-foreground">
                 {t.sourceOnGitHub}
                 <GitHubIcon className="size-3.5" />
               </a>
               <a
                 href={`${links.request}?title=${encodeURIComponent(`${integration.name.en}: `)}`}
+                data-track="report-problem"
+                data-track-id={integration.id}
                 className="flex items-center justify-between text-muted-foreground hover:text-foreground"
               >
                 {t.reportProblem}
@@ -316,10 +318,10 @@ export default async function IntegrationPage({ params }: PageProps<"/[lang]/int
             <h2 className="font-semibold">{t.newTitle}</h2>
             <p className="mt-1 text-sm leading-6 text-muted-foreground">{t.newText}</p>
             <div className="mt-3 flex flex-col gap-2">
-              <a href={docsUrl(lang, "basic/try-with-docker")} className={buttonVariants({ variant: "outline", size: "sm" })}>
+              <a href={docsUrl(lang, "basic/try-with-docker")} data-track="self-host" data-track-id={integration.id} className={buttonVariants({ variant: "outline", size: "sm" })}>
                 {t.selfHost}
               </a>
-              <a href={links.cloud} className={buttonVariants({ variant: "ghost", size: "sm" })}>
+              <a href={links.cloud} data-track="try-cloud" data-track-id={integration.id} className={buttonVariants({ variant: "ghost", size: "sm" })}>
                 {t.tryCloud}
               </a>
             </div>

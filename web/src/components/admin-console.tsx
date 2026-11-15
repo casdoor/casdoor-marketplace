@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { AdminStats } from "@/components/admin-stats";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 
@@ -37,13 +38,15 @@ const fields: { key: keyof Settings; label: string; placeholder: string; help: s
   },
 ];
 
-// The admin console: sign in with Casdoor, then set the analytics the backend puts into every page.
+// The admin console: sign in with Casdoor, then see what people do with the Marketplace and set the analytics the
+// backend puts into every page.
 export function AdminConsole() {
   const [account, setAccount] = useState<Account | null>(null);
   const [settings, setSettings] = useState<Settings | null>(null);
   const [error, setError] = useState("");
   const [message, setMessage] = useState("");
   const [saving, setSaving] = useState(false);
+  const [page, setPage] = useState<"statistics" | "settings">("statistics");
 
   useEffect(() => {
     api<Account>("/api/get-account")
@@ -82,7 +85,7 @@ export function AdminConsole() {
   const user = account?.user;
 
   return (
-    <div className="mx-auto flex max-w-2xl flex-col gap-6 px-4 py-12">
+    <div className={`mx-auto flex flex-col gap-6 px-4 py-12 ${user?.isAdmin && account?.hasDatabase ? "max-w-7xl" : "max-w-2xl"}`}>
       <header className="flex items-center justify-between gap-4">
         <Link href="/" className="flex items-center gap-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -91,6 +94,15 @@ export function AdminConsole() {
         </Link>
         {user && (
           <div className="flex items-center gap-3 text-sm">
+            {user.isAdmin && account?.hasDatabase && (
+              <nav className="mr-2 flex gap-1">
+                {(["statistics", "settings"] as const).map((p) => (
+                  <Button key={p} variant={page === p ? "secondary" : "ghost"} size="sm" onClick={() => setPage(p)}>
+                    {p === "statistics" ? "Statistics" : "Settings"}
+                  </Button>
+                ))}
+              </nav>
+            )}
             <span className="text-muted-foreground">
               {user.displayName} ({user.owner}/{user.name})
             </span>
@@ -136,7 +148,9 @@ export function AdminConsole() {
           </p>
         )}
 
-        {user?.isAdmin && account?.hasDatabase && settings && (
+        {user?.isAdmin && account?.hasDatabase && page === "statistics" && <AdminStats />}
+
+        {user?.isAdmin && account?.hasDatabase && page === "settings" && settings && (
           <form onSubmit={save} className="flex flex-col gap-6">
             <div>
               <h1 className="text-xl font-semibold">Analytics</h1>

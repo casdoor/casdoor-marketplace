@@ -77,7 +77,35 @@ func StaticFilter(ctx *context.Context) {
 		return
 	}
 
+	if isPagePath(relPath) {
+		recordPageView(ctx)
+	}
 	frontendProxy.ServeHTTP(ctx.ResponseWriter, ctx.Request)
+}
+
+// recordPageView counts a page someone opened, or went to inside the site (Next.js then fetches the page's RSC
+// payload), but not the pages Next.js prefetches for the links on screen
+func recordPageView(ctx *context.Context) {
+	if ctx.Request.Method != http.MethodGet || ctx.Input.Header("Next-Router-Prefetch") != "" ||
+		ctx.Input.Header("Next-Router-Segment-Prefetch") != "" || ctx.Input.Header("Purpose") == "prefetch" {
+		return
+	}
+	path := ctx.Request.URL.Path
+	event := &object.Event{
+		Source:        object.EventSourceSite,
+		Action:        "page_view",
+		IntegrationId: object.GetIntegrationIdFromPath(path),
+		Path:          path,
+		Lang:          object.GetLangFromPath(path),
+		ClientIp:      ctx.Input.IP(),
+		UserAgent:     ctx.Input.UserAgent(),
+		Host:          ctx.Input.Host(),
+	}
+	// a navigation inside the site says the page it came from, which is no referrer
+	if ctx.Input.Header("RSC") == "" {
+		event.Referrer = object.GetExternalReferrer(ctx.Input.Refer(), ctx.Input.Host())
+	}
+	object.AddEvent(event)
 }
 
 // isPagePath tells the addresses of pages (they end with "/") from files and the admin console.

@@ -74,6 +74,15 @@ func (c *ApiController) Callback() {
 	}
 
 	c.SetSessionUser(user)
+	object.AddEvent(&object.Event{
+		Source:    object.EventSourceSite,
+		Action:    "signin",
+		User:      user.Owner + "/" + user.Name,
+		Path:      redirect,
+		ClientIp:  c.Ctx.Input.IP(),
+		UserAgent: c.Ctx.Input.UserAgent(),
+		Host:      c.Ctx.Input.Host(),
+	})
 	logs.Info("signin: %s/%s (admin: %v)", user.Owner, user.Name, user.IsAdmin)
 	c.Redirect(redirect, http.StatusFound)
 }

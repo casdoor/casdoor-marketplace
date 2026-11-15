@@ -18,4 +18,9 @@ func init() {
 	beego.Router("/api/get-my-integrations", &controllers.ApiController{}, "GET:GetMyIntegrations")
 	beego.Router("/api/get-settings", &controllers.ApiController{}, "GET:GetSettings")
 	beego.Router("/api/update-settings", &controllers.ApiController{}, "POST:UpdateSettings")
+	beego.Router("/api/add-event", &controllers.ApiController{}, "POST:AddEvent")
+	beego.Router("/api/report-installs", &controllers.ApiController{}, "POST:ReportInstalls")
+	beego.Router("/api/get-event-stats", &controllers.ApiController{}, "GET:GetEventStats")
+	beego.Router("/api/get-events", &controllers.ApiController{}, "GET:GetEvents")
+	beego.Router("/api/get-instances", &controllers.ApiController{}, "GET:GetInstances")
 }

@@ -103,6 +103,7 @@ func serveData(ctx *context.Context, relPath string) {
 			http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
 			return
 		}
+		recordDataEvent(ctx, "index", "", "", relPath, license)
 		writeData(ctx, relPath, data, "private, no-store")
 		return
 	}
@@ -113,6 +114,9 @@ func serveData(ctx *context.Context, relPath string) {
 			logs.Error("getIndexJson(): %v", err)
 			http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
 			return
+		}
+		if !isInternalRequest(ctx) {
+			recordDataEvent(ctx, "index", "", "", relPath, nil)
 		}
 		writeData(ctx, relPath, data, "no-cache")
 		return
@@ -142,6 +146,9 @@ func serveData(ctx *context.Context, relPath string) {
 	// the logo and screenshots of a paid integration are public, its content needs a license
 	isPublicAsset := strings.HasPrefix(parts[3], "logo.") || strings.HasPrefix(parts[3], "screenshots/")
 	if edition == "" || isPublicAsset || isInternalRequest(ctx) {
+		if !isPublicAsset && !isImage(parts[3]) && !isInternalRequest(ctx) {
+			recordDataEvent(ctx, "download", parts[1], parts[2], parts[3], nil)
+		}
 		writeData(ctx, relPath, file.Content, "public, max-age=86400")
 		return
 	}
@@ -172,7 +179,35 @@ func serveData(ctx *context.Context, relPath string) {
 		return
 	}
 	object.AddPaidDownload(license, parts[1], parts[2], parts[3], ctx.Input.IP())
+	recordDataEvent(ctx, "download", parts[1], parts[2], parts[3], license)
 	writeData(ctx, relPath, content, "private, no-store")
+}
+
+// the logos and screenshots the pages show are not downloads of an integration
+func isImage(path string) bool {
+	switch strings.ToLower(filepath.Ext(path)) {
+	case ".png", ".jpg", ".jpeg", ".webp", ".gif", ".svg", ".ico":
+		return true
+	}
+	return false
+}
+
+// recordDataEvent counts a catalog or file someone fetched from /data, mostly the backends of Casdoor instances
+func recordDataEvent(ctx *context.Context, action string, id string, version string, path string, license *object.License) {
+	event := &object.Event{
+		Source:        object.EventSourceData,
+		Action:        action,
+		IntegrationId: id,
+		Version:       version,
+		Target:        path,
+		ClientIp:      ctx.Input.IP(),
+		UserAgent:     ctx.Input.UserAgent(),
+		Host:          ctx.Input.Host(),
+	}
+	if license != nil {
+		event.LicenseId, event.Edition = license.Id, license.Edition
+	}
+	object.AddEvent(event)
 }
 
 func getIndexJson(includePaid bool) ([]byte, error) {

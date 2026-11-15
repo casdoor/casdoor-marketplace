@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { getMessages, type Locale } from "@/lib/i18n";
 import { localized } from "@/lib/translations";
+import { track } from "@/lib/track";
 import type { ThemeTemplate, Variable } from "@/lib/types";
 
 const htmlFields = new Set(["formSideHtml", "footerHtml"]);
@@ -50,6 +51,7 @@ export function ThemeImport({ theme, variables, lang }: { theme: ThemeTemplate; 
 
   const copy = async () => {
     await navigator.clipboard.writeText(json);
+    track({ action: "copy", target: "theme-json" });
     setCopied(true);
     setTimeout(() => setCopied(false), 2000);
   };

@@ -1,12 +1,13 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useEffect, useMemo, useState, type ReactNode } from "react";
 import { SearchX, X } from "lucide-react";
 import { useSearch } from "@/components/catalog-search";
 import { TypeIcon } from "@/components/type-icon";
 import { getMessages, type Locale } from "@/lib/i18n";
 import { links } from "@/lib/site";
 import type { IntegrationType } from "@/lib/types";
+import { track } from "@/lib/track";
 
 export type CatalogItem = {
   id: string;
@@ -110,6 +111,22 @@ export function CatalogBrowser({ items, lang, showTypes = true }: { items: Catal
   }, [items, sort, lang]);
 
   const shown = ordered.filter(visible).length;
+
+  // a search is reported once the visitor stops typing, with how many integrations it found
+  useEffect(() => {
+    if (q.length < 2) {
+      return;
+    }
+    const timer = setTimeout(() => track({ action: "search", query: q, count: shown }), 1500);
+    return () => clearTimeout(timer);
+  }, [q, shown]);
+
+  const toggleFilter = (kind: string, list: string[], value: string, set: (l: string[]) => void) => {
+    if (!list.includes(value)) {
+      track({ action: "filter", target: `${kind}:${value}` });
+    }
+    set(toggle(list, value));
+  };
   const active = [
     ...types.map((t) => ({ label: m.typeLabels[t as IntegrationType], clear: () => setTypes(toggle(types, t)) })),
     ...categories.map((c) => ({ label: c, clear: () => setCategories(toggle(categories, c)) })),
@@ -125,7 +142,7 @@ export function CatalogBrowser({ items, lang, showTypes = true }: { items: Catal
             title={m.catalog.type}
             options={typeOptions as [string, number][]}
             selected={types}
-            onToggle={(v) => setTypes(toggle(types, v))}
+            onToggle={(v) => toggleFilter("type", types, v, setTypes)}
             render={(v) => (
               <>
                 <TypeIcon type={v as IntegrationType} className="size-4 shrink-0 text-muted-foreground" />
@@ -134,8 +151,8 @@ export function CatalogBrowser({ items, lang, showTypes = true }: { items: Catal
             )}
           />
         )}
-        <FacetGroup title={m.catalog.category} options={categoryOptions} selected={categories} onToggle={(v) => setCategories(toggle(categories, v))} />
-        <FacetGroup title={m.catalog.capabilities} options={tagOptions} selected={tags} onToggle={(v) => setTags(toggle(tags, v))} />
+        <FacetGroup title={m.catalog.category} options={categoryOptions} selected={categories} onToggle={(v) => toggleFilter("category", categories, v, setCategories)} />
+        <FacetGroup title={m.catalog.capabilities} options={tagOptions} selected={tags} onToggle={(v) => toggleFilter("tag", tags, v, setTags)} />
       </aside>
 
       <div className="flex min-w-0 flex-col gap-5">
@@ -160,7 +177,10 @@ export function CatalogBrowser({ items, lang, showTypes = true }: { items: Catal
             {m.catalog.sortBy}
             <select
               value={sort}
-              onChange={(e) => setSort(e.target.value as Sort)}
+              onChange={(e) => {
+                setSort(e.target.value as Sort);
+                track({ action: "filter", target: `sort:${e.target.value}` });
+              }}
               className="h-8 rounded-md border bg-background px-2 text-sm text-foreground"
             >
               <option value="featured">{m.catalog.sortFeatured}</option>

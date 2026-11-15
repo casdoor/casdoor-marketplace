@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { Geist, Geist_Mono } from "next/font/google";
 import { BaiduTongjiPageview } from "@/components/baidu-tongji";
+import { EventTracker } from "@/components/event-tracker";
 import { SiteFooter } from "@/components/site-footer";
 import { SiteHeader } from "@/components/site-header";
 import { getMessages, htmlLangs, isLocale, siteUrls } from "@/lib/i18n";
@@ -56,6 +57,7 @@ export default async function RootLayout({ children, params }: LayoutProps<"/[la
         <main className="flex-1">{children}</main>
         <SiteFooter lang={lang} />
         <BaiduTongjiPageview />
+        <EventTracker />
       </body>
     </html>
   );
