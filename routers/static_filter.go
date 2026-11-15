@@ -90,6 +90,13 @@ func recordPageView(ctx *context.Context) {
 		ctx.Input.Header("Next-Router-Segment-Prefetch") != "" || ctx.Input.Header("Purpose") == "prefetch" {
 		return
 	}
+	// CasWAF checks that the site is up by fetching http://localhost:<port>/
+	host, _, _ := strings.Cut(ctx.Input.Host(), ":")
+	if host == "localhost" || host == "127.0.0.1" || host == "::1" {
+		if ctx.Input.Header("X-Forwarded-For") == "" {
+			return
+		}
+	}
 	path := ctx.Request.URL.Path
 	event := &object.Event{
 		Source:        object.EventSourceSite,
