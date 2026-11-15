@@ -69,6 +69,7 @@ func (c *ApiController) AddEvent() {
 		Count:         req.Count,
 		Path:          req.Path,
 		Lang:          object.GetLangFromPath(req.Path),
+		VisitorId:     GetVisitorId(c.Ctx),
 		ClientIp:      clientIp,
 		UserAgent:     c.Ctx.Input.UserAgent(),
 		Host:          c.Ctx.Input.Host(),

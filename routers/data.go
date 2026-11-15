@@ -187,10 +187,27 @@ func serveData(ctx *context.Context, relPath string) {
 	writeData(ctx, relPath, content, "private, no-store")
 }
 
+// the steps Casdoor reads meta.json again for, with ?step=, and the actions they are recorded as
+var metaStepActions = map[string]string{
+	"installed":   "installed",
+	"failed":      "install_failed",
+	"uninstalled": "uninstalled",
+}
+
+// the stages an install fails at, ?stage= with step=failed
+var metaFailStages = map[string]bool{"revoked": true, "download": true, "variables": true, "create": true, "save": true}
+
 // serveVersionMeta answers /data/integrations/<id>/<version>/meta.json, which Casdoor reads before installing a version
 // it got from the CDN: the checksum the bundle must have and whether the version is still published. It is never cached,
-// so a revocation takes effect at once; each read is counted as an install.
+// so a revocation takes effect at once; each read is counted as an install. Casdoor reads it again with ?step= when the
+// install has ended (installed, or failed with ?stage=) and when the version is uninstalled.
 func serveVersionMeta(ctx *context.Context, id string, version string) {
+	step := ctx.Input.Query("step")
+	if step != "" {
+		serveVersionMetaStep(ctx, id, version, step)
+		return
+	}
+
 	license, err := getRequestLicense(ctx)
 	if err != nil {
 		writeForbidden(ctx, err.Error())
@@ -213,6 +230,49 @@ func serveVersionMeta(ctx *context.Context, id string, version string) {
 	}
 	if !isInternalRequest(ctx) {
 		recordDataEvent(ctx, "install", id, version, "meta.json", license)
+	}
+	writeData(ctx, "meta.json", data, "no-store")
+}
+
+// serveVersionMetaStep records how an install ended or that a version was uninstalled. It answers the meta even for a
+// version no longer in the Marketplace, and always with 200, so Casdoor does not ask the other node, which writes to the
+// same database, again.
+func serveVersionMetaStep(ctx *context.Context, id string, version string, step string) {
+	action, ok := metaStepActions[step]
+	if !ok || !object.IsValidIntegrationId(id) {
+		http.Error(ctx.ResponseWriter, "invalid step", http.StatusBadRequest)
+		return
+	}
+	stage := ""
+	if step == "failed" {
+		stage = ctx.Input.Query("stage")
+		if !metaFailStages[stage] {
+			stage = "other"
+		}
+	}
+
+	license, err := getRequestLicense(ctx)
+	if err != nil {
+		license = nil
+	}
+	meta, err := object.GetVersionMeta(id, version, license)
+	if err != nil {
+		logs.Error("GetVersionMeta(): %v", err)
+	}
+	if meta == nil {
+		meta = &object.VersionMeta{Id: id, Version: version}
+	}
+	data, err := json.Marshal(meta)
+	if err != nil {
+		http.Error(ctx.ResponseWriter, err.Error(), http.StatusInternalServerError)
+		return
+	}
+	if !isInternalRequest(ctx) {
+		target := "meta.json"
+		if stage != "" {
+			target = stage
+		}
+		recordDataEvent(ctx, action, id, version, target, license)
 	}
 	writeData(ctx, "meta.json", data, "no-store")
 }

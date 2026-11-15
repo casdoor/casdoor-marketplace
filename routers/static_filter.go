@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/beego/beego/context"
+	"github.com/casdoor/casdoor-marketplace/controllers"
 	"github.com/casdoor/casdoor-marketplace/object"
 )
 
@@ -104,6 +105,7 @@ func recordPageView(ctx *context.Context) {
 		IntegrationId: object.GetIntegrationIdFromPath(path),
 		Path:          path,
 		Lang:          object.GetLangFromPath(path),
+		VisitorId:     controllers.GetVisitorId(ctx),
 		ClientIp:      ctx.Input.IP(),
 		UserAgent:     ctx.Input.UserAgent(),
 		Host:          ctx.Input.Host(),

@@ -12,8 +12,8 @@ import (
 )
 
 // Event is one thing someone did with the Marketplace: a page they opened or a link they clicked on the site, or a file
-// a Casdoor instance or anyone else downloaded from /data, including the meta.json Casdoor reads to install a version.
-// Only what reaches this site is recorded: Casdoor does not report anything.
+// a Casdoor instance or anyone else downloaded from /data, including the meta.json Casdoor reads to install a version
+// and reads again, with only the step in the address, when the install has ended and when the version is uninstalled.
 type Event struct {
 	Id          int64  `xorm:"pk autoincr" json:"id"`
 	CreatedTime string `xorm:"varchar(100) index" json:"createdTime"`
@@ -31,7 +31,7 @@ type Event struct {
 	Referrer string `xorm:"varchar(500)" json:"referrer"`
 	Lang     string `xorm:"varchar(20)" json:"lang"`
 	Host     string `xorm:"varchar(100)" json:"host"`
-	// a hash of the IP address, the browser and the day, so a visitor is counted once a day without a cookie
+	// the visitor's cookie on the pages; for crawlers, scripts and /data, a hash of the IP address, the browser and the day
 	VisitorId string `xorm:"varchar(50) index" json:"visitorId"`
 	User      string `xorm:"varchar(200)" json:"user"`
 	// the license a Casdoor sent to get a paid integration

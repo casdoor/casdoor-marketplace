@@ -28,6 +28,9 @@ type IntegrationStat = {
   clicks: number;
   installs: number;
   installAddresses: number;
+  installed: number;
+  installFailed: number;
+  uninstalled: number;
   downloads: number;
   downloadAddresses: number;
   cdnHits: number;
@@ -43,6 +46,9 @@ type Stats = {
   referrers: NameCount[] | null;
   pages: NameCount[] | null;
   licenses: NameCount[] | null;
+  failStages: NameCount[] | null;
+  visitors: number;
+  returningVisitors: number;
   cdn: { period: string; bundleHits: Record<string, number>; indexHits: number; error: string };
 };
 
@@ -75,6 +81,9 @@ type CatalogClient = {
   userAgent: string;
   fetches: number;
   installs: number;
+  installed: number;
+  installFailed: number;
+  uninstalled: number;
   downloads: number;
   days: number;
   firstSeen: string;
@@ -154,6 +163,9 @@ const dailySeries: { key: string; label: string }[] = [
   { key: "site/copy", label: "Copies" },
   { key: "site/filter", label: "Filters" },
   { key: "data/install", label: "Installs" },
+  { key: "data/installed", label: "Installed" },
+  { key: "data/install_failed", label: "Failed" },
+  { key: "data/uninstalled", label: "Uninstalled" },
   { key: "data/download", label: "File downloads" },
   { key: "data/index", label: "Catalog fetches" },
 ];
@@ -216,10 +228,13 @@ function DailyTable({ daily, days, since }: { daily: DailyCount[]; days: number;
 type SortKey = keyof IntegrationStat;
 
 const integrationColumns: { key: SortKey; label: string; title: string }[] = [
-  { key: "installs", label: "Installs", title: "Installs: Casdoor reads its meta.json from this site before installing a version" },
+  { key: "installs", label: "Installs", title: "Installs started: Casdoor reads its meta.json from this site before installing a version" },
   { key: "installAddresses", label: "By", title: "The addresses that installed it" },
+  { key: "installed", label: "Installed", title: "Installs that succeeded" },
+  { key: "installFailed", label: "Failed", title: "Installs that failed after the meta.json check" },
+  { key: "uninstalled", label: "Uninstalled", title: "Uninstalls of it" },
   { key: "pageViews", label: "Page views", title: "Views of its page on this site" },
-  { key: "visitors", label: "Visitors", title: "Daily unique visitors of its page, summed" },
+  { key: "visitors", label: "Visitors", title: "Unique visitors of its page" },
   { key: "clicks", label: "Clicks", title: "Clicks and copies on its page" },
   { key: "downloads", label: "Downloads", title: "Its files downloaded from this site (/data), mostly by Casdoor backends" },
   { key: "downloadAddresses", label: "From", title: "The addresses that downloaded them" },
@@ -320,7 +335,7 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
           <Section title="The site">
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <Tile label="Page views" value={fmt(sum(actions, "site", "page_view"))} />
-              <Tile label="Visitors" value={fmt(sum(actions, "site", "page_view", "visitors"))} hint="unique per day, summed" />
+              <Tile label="Visitors" value={fmt(stats.visitors)} hint={`${fmt(stats.returningVisitors)} came on more than one day`} />
               <Tile label="Searches" value={fmt(sum(actions, "site", "search"))} />
               <Tile label="Filters" value={fmt(sum(actions, "site", "filter"))} />
               <Tile label="Clicks" value={fmt(sum(actions, "site", "click"))} />
@@ -331,10 +346,13 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
 
           <Section
             title="Downloads"
-            note="What Casdoor instances and others fetched from /data on this site. Casdoor reads an integration's meta.json here before installing it (an install), and gets the free catalog and bundles from jsDelivr by default, so those mostly show in jsDelivr's public statistics."
+            note="What Casdoor instances and others fetched from /data on this site. Casdoor reads an integration's meta.json here before installing it (an install), again when the install has ended (installed or failed) and when it is uninstalled, with only the integration, the version and the step in the address. It gets the free catalog and bundles from jsDelivr by default, so those mostly show in jsDelivr's public statistics."
           >
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
               <Tile label="Installs" value={fmt(sum(actions, "data", "install"))} hint={`from ${fmt(sum(actions, "data", "install", "addresses"))} addresses`} />
+              <Tile label="Installed" value={fmt(sum(actions, "data", "installed"))} hint={`from ${fmt(sum(actions, "data", "installed", "addresses"))} addresses`} />
+              <Tile label="Failed installs" value={fmt(sum(actions, "data", "install_failed"))} hint={`from ${fmt(sum(actions, "data", "install_failed", "addresses"))} addresses`} />
+              <Tile label="Uninstalls" value={fmt(sum(actions, "data", "uninstalled"))} hint={`from ${fmt(sum(actions, "data", "uninstalled", "addresses"))} addresses`} />
               <Tile label="Catalog fetches" value={fmt(sum(actions, "data", "index"))} hint={`from ${fmt(sum(actions, "data", "index", "addresses"))} addresses`} />
               <Tile label="File downloads" value={fmt(sum(actions, "data", "download"))} hint={`from ${fmt(sum(actions, "data", "download", "addresses"))} addresses`} />
               <Tile label={`jsDelivr catalog (${stats.cdn.period})`} value={stats.cdn.error ? "—" : fmt(stats.cdn.indexHits)} hint={stats.cdn.error || undefined} />
@@ -369,6 +387,9 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
             <Section title="Paid downloads by license">
               <NameCountTable rows={stats.licenses} empty="No paid downloads yet." />
             </Section>
+            <Section title="Failed installs" note="By integration, version and the stage it failed at: revoked, download (the bundle or its checksum), variables, create (the objects in Casdoor) or save.">
+              <NameCountTable rows={stats.failStages} empty="No failed installs yet." />
+            </Section>
           </div>
         </>
       )}
@@ -378,9 +399,9 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
 
 const sources = ["", "site", "data"];
 const actionsBySource: Record<string, string[]> = {
-  "": ["", "page_view", "search", "filter", "click", "copy", "signin", "install", "index", "download"],
+  "": ["", "page_view", "search", "filter", "click", "copy", "signin", "install", "installed", "install_failed", "uninstalled", "index", "download"],
   site: ["", "page_view", "search", "filter", "click", "copy", "signin"],
-  data: ["", "install", "index", "download"],
+  data: ["", "install", "installed", "install_failed", "uninstalled", "index", "download"],
 };
 
 export type EventQuery = { source: string; action: string; integrationId: string; clientIp: string; visitorId: string; includeBots: boolean };
@@ -577,6 +598,9 @@ function CatalogClients({ onPick }: { onPick: (clientIp: string) => void }) {
                 <th className="px-2 py-2 text-left font-medium">Client</th>
                 <th className="px-2 py-2 text-right font-medium">Catalog fetches</th>
                 <th className="px-2 py-2 text-right font-medium">Installs</th>
+                <th className="px-2 py-2 text-right font-medium">Installed</th>
+                <th className="px-2 py-2 text-right font-medium">Failed</th>
+                <th className="px-2 py-2 text-right font-medium">Uninstalled</th>
                 <th className="px-2 py-2 text-right font-medium">Downloads</th>
                 <th className="px-2 py-2 text-right font-medium">Days</th>
                 <th className="px-2 py-2 text-left font-medium">First seen</th>
@@ -598,6 +622,9 @@ function CatalogClients({ onPick }: { onPick: (clientIp: string) => void }) {
                   </td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{fmt(r.fetches)}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{r.installs ? fmt(r.installs) : ""}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{r.installed ? fmt(r.installed) : ""}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{r.installFailed ? fmt(r.installFailed) : ""}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{r.uninstalled ? fmt(r.uninstalled) : ""}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{r.downloads ? fmt(r.downloads) : ""}</td>
                   <td className="px-2 py-1.5 text-right tabular-nums">{r.days}</td>
                   <td className="px-2 py-1.5 whitespace-nowrap tabular-nums">{r.firstSeen}</td>
