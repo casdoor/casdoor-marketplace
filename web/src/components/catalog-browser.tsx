@@ -34,7 +34,8 @@ function count<T>(items: CatalogItem[], key: (i: CatalogItem) => T[]) {
       counts.set(k, (counts.get(k) ?? 0) + 1);
     }
   }
-  return [...counts.entries()].sort((a, b) => b[1] - a[1] || String(a[0]).localeCompare(String(b[0])));
+  // by code point, so the server and every browser order ties the same way
+  return [...counts.entries()].sort((a, b) => b[1] - a[1] || (String(a[0]) < String(b[0]) ? -1 : String(a[0]) > String(b[0]) ? 1 : 0));
 }
 
 function FacetGroup({
