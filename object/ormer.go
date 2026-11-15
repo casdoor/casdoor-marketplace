@@ -34,8 +34,7 @@ func InitAdapter() {
 	}
 	engine.SetConnMaxLifetime(5 * time.Minute)
 
-	err = engine.Sync2(new(Setting), new(Integration), new(IntegrationVersion), new(IntegrationFile), new(PaidDownload),
-		new(Event), new(Instance), new(InstanceInstall))
+	err = engine.Sync2(new(Setting), new(Integration), new(IntegrationVersion), new(IntegrationFile), new(PaidDownload), new(Event))
 	if err != nil {
 		panic(err)
 	}

@@ -3,19 +3,18 @@ package object
 import (
 	"sort"
 	"strconv"
-	"strings"
 	"time"
 
 	"github.com/xorm-io/xorm"
 )
 
 type ActionCount struct {
-	Source    string `json:"source"`
-	Action    string `json:"action"`
-	Result    string `json:"result"`
-	Count     int64  `json:"count"`
-	Visitors  int64  `json:"visitors"`
-	Instances int64  `json:"instances"`
+	Source   string `json:"source"`
+	Action   string `json:"action"`
+	Count    int64  `json:"count"`
+	Visitors int64  `json:"visitors"`
+	// the addresses it came from, e.g. the Casdoor backends that fetched the catalog
+	Addresses int64 `json:"addresses"`
 }
 
 type DailyCount struct {
@@ -34,17 +33,9 @@ type IntegrationStat struct {
 	PageViews int64 `json:"pageViews"`
 	Visitors  int64 `json:"visitors"`
 	Clicks    int64 `json:"clicks"`
-	// Casdoor instances: views of the integration in their Marketplace page, installs and the instances that installed
-	InstanceViews    int64 `json:"instanceViews"`
-	Installs         int64 `json:"installs"`
-	InstallInstances int64 `json:"installInstances"`
-	InstallErrors    int64 `json:"installErrors"`
-	Uninstalls       int64 `json:"uninstalls"`
-	// files from /data and from Casdoor's download-marketplace-file
-	Downloads int64 `json:"downloads"`
-	// the instances seen in the last 7 days that have it installed, and how many times in all
-	ActiveInstances int64 `json:"activeInstances"`
-	ActiveInstalls  int64 `json:"activeInstalls"`
+	// its files downloaded from /data, and from how many addresses
+	Downloads         int64 `json:"downloads"`
+	DownloadAddresses int64 `json:"downloadAddresses"`
 	// the bundle.json downloads from jsDelivr, where most Casdoor instances get the free integrations
 	CdnHits int64 `json:"cdnHits"`
 }
@@ -54,14 +45,17 @@ type NameCount struct {
 	Count int64  `json:"count"`
 }
 
-type InstanceStats struct {
-	Total int64 `json:"total"`
-	// seen in the last 7 days
-	Active int64 `json:"active"`
-	// sent the list of their installed integrations in the last 7 days
-	Reporting int64        `json:"reporting"`
-	Versions  []*NameCount `json:"versions"`
-	Editions  []*NameCount `json:"editions"`
+// CatalogClient is an address that fetched the catalog from /data, mostly the backend of a Casdoor instance
+type CatalogClient struct {
+	ClientIp  string `json:"clientIp"`
+	UserAgent string `json:"userAgent"`
+	Fetches   int64  `json:"fetches"`
+	Downloads int64  `json:"downloads"`
+	Days      int64  `json:"days"`
+	FirstSeen string `json:"firstSeen"`
+	LastSeen  string `json:"lastSeen"`
+	LicenseId string `json:"licenseId"`
+	Hosts     string `json:"hosts"`
 }
 
 type EventStats struct {
@@ -74,11 +68,9 @@ type EventStats struct {
 	Clicks       []*NameCount       `json:"clicks"`
 	Referrers    []*NameCount       `json:"referrers"`
 	Pages        []*NameCount       `json:"pages"`
-	Instances    *InstanceStats     `json:"instances"`
+	Licenses     []*NameCount       `json:"licenses"`
 	Cdn          *CdnStats          `json:"cdn"`
 }
-
-const activeDays = 7
 
 func parseInt64(s string) int64 {
 	n, _ := strconv.ParseInt(s, 10, 64)
@@ -97,28 +89,30 @@ func queryNameCounts(sql string, args ...interface{}) ([]*NameCount, error) {
 	return res, nil
 }
 
+func getSince(days int) string {
+	return time.Now().In(eventZone).AddDate(0, 0, -days+1).Format("2006-01-02") + " 00:00:00"
+}
+
 // GetEventStats sums up the events of the last days, leaving out crawlers and scripts
 func GetEventStats(days int) (*EventStats, error) {
-	now := time.Now()
-	since := now.In(eventZone).AddDate(0, 0, -days+1).Format("2006-01-02") + " 00:00:00"
-	activeSince := eventTime(now.AddDate(0, 0, -activeDays))
+	since := getSince(days)
 	stats := &EventStats{Days: days, Since: since}
 
-	rows, err := engine.QueryString(`select source, action, result, count(*) as count, count(distinct nullif(visitor_id, '')) as visitors,
-		count(distinct nullif(instance_id, '')) as instances from event where created_time >= ? and is_bot = 0
-		group by source, action, result order by count desc`, since)
+	rows, err := engine.QueryString(`select source, action, count(*) as count, count(distinct nullif(visitor_id, '')) as visitors,
+		count(distinct client_ip) as addresses from event where created_time >= ? and is_bot = 0
+		group by source, action order by count desc`, since)
 	if err != nil {
 		return nil, err
 	}
 	for _, row := range rows {
 		stats.Actions = append(stats.Actions, &ActionCount{
-			Source: row["source"], Action: row["action"], Result: row["result"],
-			Count: parseInt64(row["count"]), Visitors: parseInt64(row["visitors"]), Instances: parseInt64(row["instances"]),
+			Source: row["source"], Action: row["action"], Count: parseInt64(row["count"]),
+			Visitors: parseInt64(row["visitors"]), Addresses: parseInt64(row["addresses"]),
 		})
 	}
 
 	rows, err = engine.QueryString(`select left(created_time, 10) as day, source, action, count(*) as count from event
-		where created_time >= ? and is_bot = 0 and result = '' group by day, source, action order by day`, since)
+		where created_time >= ? and is_bot = 0 group by day, source, action order by day`, since)
 	if err != nil {
 		return nil, err
 	}
@@ -126,7 +120,7 @@ func GetEventStats(days int) (*EventStats, error) {
 		stats.Daily = append(stats.Daily, &DailyCount{Day: row["day"], Source: row["source"], Action: row["action"], Count: parseInt64(row["count"])})
 	}
 
-	stats.Integrations, err = getIntegrationStats(since, activeSince, days)
+	stats.Integrations, err = getIntegrationStats(since)
 	if err != nil {
 		return nil, err
 	}
@@ -151,11 +145,12 @@ func GetEventStats(days int) (*EventStats, error) {
 	if err != nil {
 		return nil, err
 	}
-
-	stats.Instances, err = getInstanceStats(activeSince)
+	stats.Licenses, err = queryNameCounts(`select concat(license_id, ' (', edition, ')') as name, count(*) as count from event
+		where created_time >= ? and source = 'data' and license_id <> '' group by license_id, edition order by count desc limit 30`, since)
 	if err != nil {
 		return nil, err
 	}
+
 	stats.Cdn = GetCdnStats(days)
 	for _, stat := range stats.Integrations {
 		stat.CdnHits = stats.Cdn.BundleHits[stat.IntegrationId]
@@ -163,7 +158,7 @@ func GetEventStats(days int) (*EventStats, error) {
 	return stats, nil
 }
 
-func getIntegrationStats(since string, activeSince string, days int) ([]*IntegrationStat, error) {
+func getIntegrationStats(since string) ([]*IntegrationStat, error) {
 	integrations := []*Integration{}
 	err := engine.Cols("id", "name", "type", "edition").Find(&integrations)
 	if err != nil {
@@ -183,9 +178,9 @@ func getIntegrationStats(since string, activeSince string, days int) ([]*Integra
 		stat.Name, stat.Type, stat.Edition = integration.Name, integration.Type, integration.Edition
 	}
 
-	rows, err := engine.QueryString(`select integration_id, source, action, result, count(*) as count,
-		count(distinct nullif(visitor_id, '')) as visitors, count(distinct nullif(instance_id, '')) as instances from event
-		where created_time >= ? and is_bot = 0 and integration_id <> '' group by integration_id, source, action, result`, since)
+	rows, err := engine.QueryString(`select integration_id, source, action, count(*) as count,
+		count(distinct nullif(visitor_id, '')) as visitors, count(distinct client_ip) as addresses from event
+		where created_time >= ? and is_bot = 0 and integration_id <> '' group by integration_id, source, action`, since)
 	if err != nil {
 		return nil, err
 	}
@@ -198,35 +193,10 @@ func getIntegrationStats(since string, activeSince string, days int) ([]*Integra
 			stat.Visitors += parseInt64(row["visitors"])
 		case "site/click", "site/copy":
 			stat.Clicks += count
-		case "instance/view":
-			stat.InstanceViews += count
-		case "instance/install":
-			if row["result"] == "" {
-				stat.Installs += count
-				stat.InstallInstances += parseInt64(row["instances"])
-			} else {
-				stat.InstallErrors += count
-			}
-		case "instance/uninstall":
-			if row["result"] == "" {
-				stat.Uninstalls += count
-			}
-		case "data/download", "instance/download":
-			if row["result"] == "" {
-				stat.Downloads += count
-			}
+		case "data/download":
+			stat.Downloads += count
+			stat.DownloadAddresses += parseInt64(row["addresses"])
 		}
-	}
-
-	rows, err = engine.QueryString(`select ii.integration_id, count(*) as instances, sum(ii.count) as installs from instance_install ii
-		join instance i on i.id = ii.instance_id where i.last_seen >= ? group by ii.integration_id`, activeSince)
-	if err != nil {
-		return nil, err
-	}
-	for _, row := range rows {
-		stat := get(row["integration_id"])
-		stat.ActiveInstances = parseInt64(row["instances"])
-		stat.ActiveInstalls = parseInt64(row["installs"])
 	}
 
 	res := []*IntegrationStat{}
@@ -235,53 +205,42 @@ func getIntegrationStats(since string, activeSince string, days int) ([]*Integra
 	}
 	sort.Slice(res, func(i, j int) bool {
 		a, b := res[i], res[j]
-		if a.ActiveInstances != b.ActiveInstances {
-			return a.ActiveInstances > b.ActiveInstances
-		}
-		if a.Installs != b.Installs {
-			return a.Installs > b.Installs
-		}
 		if a.PageViews != b.PageViews {
 			return a.PageViews > b.PageViews
+		}
+		if a.CdnHits != b.CdnHits {
+			return a.CdnHits > b.CdnHits
 		}
 		return a.IntegrationId < b.IntegrationId
 	})
 	return res, nil
 }
 
-func getInstanceStats(activeSince string) (*InstanceStats, error) {
-	stats := &InstanceStats{}
-	var err error
-	stats.Total, err = engine.Count(&Instance{})
+// GetCatalogClients lists the addresses that fetched the catalog from /data in the last days, the latest first
+func GetCatalogClients(days int) ([]*CatalogClient, error) {
+	rows, err := engine.QueryString(`select client_ip, max(user_agent) as user_agent, sum(action = 'index') as fetches,
+		sum(action = 'download') as downloads, count(distinct left(created_time, 10)) as days, min(created_time) as first_seen,
+		max(created_time) as last_seen, max(license_id) as license_id, group_concat(distinct host) as hosts from event
+		where source = 'data' and created_time >= ? group by client_ip order by last_seen desc limit 500`, getSince(days))
 	if err != nil {
 		return nil, err
 	}
-	stats.Active, err = engine.Where("last_seen >= ?", activeSince).Count(&Instance{})
-	if err != nil {
-		return nil, err
+	res := []*CatalogClient{}
+	for _, row := range rows {
+		res = append(res, &CatalogClient{
+			ClientIp: row["client_ip"], UserAgent: row["user_agent"], Fetches: parseInt64(row["fetches"]),
+			Downloads: parseInt64(row["downloads"]), Days: parseInt64(row["days"]), FirstSeen: row["first_seen"],
+			LastSeen: row["last_seen"], LicenseId: row["license_id"], Hosts: row["hosts"],
+		})
 	}
-	stats.Reporting, err = engine.Where("last_report >= ?", activeSince).Count(&Instance{})
-	if err != nil {
-		return nil, err
-	}
-	stats.Versions, err = queryNameCounts(`select casdoor_version as name, count(*) as count from instance where last_seen >= ?
-		group by casdoor_version order by count desc limit 20`, activeSince)
-	if err != nil {
-		return nil, err
-	}
-	stats.Editions, err = queryNameCounts(`select edition as name, count(*) as count from instance where last_seen >= ?
-		group by edition order by count desc`, activeSince)
-	if err != nil {
-		return nil, err
-	}
-	return stats, nil
+	return res, nil
 }
 
 type EventFilter struct {
 	Source        string
 	Action        string
 	IntegrationId string
-	InstanceId    string
+	ClientIp      string
 	VisitorId     string
 	IncludeBots   bool
 	Page          int
@@ -301,8 +260,8 @@ func GetEvents(filter *EventFilter) ([]*Event, int64, error) {
 		if filter.IntegrationId != "" {
 			s = s.And("integration_id = ?", filter.IntegrationId)
 		}
-		if filter.InstanceId != "" {
-			s = s.And("instance_id = ?", filter.InstanceId)
+		if filter.ClientIp != "" {
+			s = s.And("client_ip = ?", filter.ClientIp)
 		}
 		if filter.VisitorId != "" {
 			s = s.And("visitor_id = ?", filter.VisitorId)
@@ -328,38 +287,4 @@ func GetEvents(filter *EventFilter) ([]*Event, int64, error) {
 		return nil, 0, err
 	}
 	return events, count, nil
-}
-
-// GetInstances lists the instances, the most recently seen first, with what they have installed
-func GetInstances() ([]*InstanceWithInstalls, error) {
-	instances := []*Instance{}
-	err := engine.Desc("last_seen").Limit(500).Find(&instances)
-	if err != nil {
-		return nil, err
-	}
-	installs := []*InstanceInstall{}
-	err = engine.Find(&installs)
-	if err != nil {
-		return nil, err
-	}
-	byInstance := map[string][]string{}
-	for _, install := range installs {
-		name := install.IntegrationId
-		if install.Count > 1 {
-			name += " ×" + strconv.Itoa(install.Count)
-		}
-		byInstance[install.InstanceId] = append(byInstance[install.InstanceId], name)
-	}
-	res := []*InstanceWithInstalls{}
-	for _, instance := range instances {
-		names := byInstance[instance.Id]
-		sort.Strings(names)
-		res = append(res, &InstanceWithInstalls{Instance: instance, Installs: strings.Join(names, ", ")})
-	}
-	return res, nil
-}
-
-type InstanceWithInstalls struct {
-	*Instance
-	Installs string `json:"installs"`
 }

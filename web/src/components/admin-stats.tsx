@@ -15,7 +15,7 @@ async function get<T>(path: string): Promise<T> {
   return json.data;
 }
 
-type ActionCount = { source: string; action: string; result: string; count: number; visitors: number; instances: number };
+type ActionCount = { source: string; action: string; count: number; visitors: number; addresses: number };
 type DailyCount = { day: string; source: string; action: string; count: number };
 type NameCount = { name: string; count: number };
 type IntegrationStat = {
@@ -26,14 +26,8 @@ type IntegrationStat = {
   pageViews: number;
   visitors: number;
   clicks: number;
-  instanceViews: number;
-  installs: number;
-  installInstances: number;
-  installErrors: number;
-  uninstalls: number;
   downloads: number;
-  activeInstances: number;
-  activeInstalls: number;
+  downloadAddresses: number;
   cdnHits: number;
 };
 type Stats = {
@@ -46,7 +40,7 @@ type Stats = {
   clicks: NameCount[] | null;
   referrers: NameCount[] | null;
   pages: NameCount[] | null;
-  instances: { total: number; active: number; reporting: number; versions: NameCount[] | null; editions: NameCount[] | null };
+  licenses: NameCount[] | null;
   cdn: { period: string; bundleHits: Record<string, number>; indexHits: number; error: string };
 };
 
@@ -67,35 +61,29 @@ type Event = {
   host: string;
   visitorId: string;
   user: string;
-  instanceId: string;
-  casdoorVersion: string;
   edition: string;
   licenseId: string;
-  result: string;
-  message: string;
   clientIp: string;
   userAgent: string;
   isBot: boolean;
 };
 
-type Instance = {
-  id: string;
+type CatalogClient = {
+  clientIp: string;
+  userAgent: string;
+  fetches: number;
+  downloads: number;
+  days: number;
   firstSeen: string;
   lastSeen: string;
-  casdoorVersion: string;
-  edition: string;
   licenseId: string;
-  clientIp: string;
-  lastReport: string;
-  installs: string;
+  hosts: string;
 };
 
 const fmt = (n: number) => n.toLocaleString("en-US");
 
-function sum(actions: ActionCount[], source: string, action: string, field: "count" | "visitors" | "instances" = "count", errors = false) {
-  return actions
-    .filter((a) => a.source === source && a.action === action && (errors ? a.result !== "" : a.result === ""))
-    .reduce((n, a) => n + a[field], 0);
+function sum(actions: ActionCount[], source: string, action: string, field: "count" | "visitors" | "addresses" = "count") {
+  return actions.filter((a) => a.source === source && a.action === action).reduce((n, a) => n + a[field], 0);
 }
 
 function Tile({ label, value, hint }: { label: string; value: string; hint?: string }) {
@@ -161,10 +149,7 @@ const dailySeries: { key: string; label: string }[] = [
   { key: "site/search", label: "Searches" },
   { key: "site/click", label: "Clicks" },
   { key: "site/copy", label: "Copies" },
-  { key: "instance/browse", label: "Instance browses" },
-  { key: "instance/view", label: "Instance views" },
-  { key: "instance/install", label: "Installs" },
-  { key: "instance/uninstall", label: "Uninstalls" },
+  { key: "site/filter", label: "Filters" },
   { key: "data/download", label: "File downloads" },
   { key: "data/index", label: "Catalog fetches" },
 ];
@@ -227,21 +212,16 @@ function DailyTable({ daily, days, since }: { daily: DailyCount[]; days: number;
 type SortKey = keyof IntegrationStat;
 
 const integrationColumns: { key: SortKey; label: string; title: string }[] = [
-  { key: "activeInstances", label: "Active inst.", title: "Instances seen in the last 7 days that have it installed" },
-  { key: "installs", label: "Installs", title: "Installs reported by Casdoor instances in the period" },
-  { key: "installInstances", label: "By inst.", title: "Instances that installed it in the period" },
-  { key: "installErrors", label: "Failed", title: "Installs that failed" },
-  { key: "uninstalls", label: "Uninst.", title: "Uninstalls in the period" },
-  { key: "instanceViews", label: "Inst. views", title: "Opened in the Marketplace page of a Casdoor instance" },
   { key: "pageViews", label: "Page views", title: "Views of its page on this site" },
   { key: "visitors", label: "Visitors", title: "Daily unique visitors of its page, summed" },
   { key: "clicks", label: "Clicks", title: "Clicks and copies on its page" },
-  { key: "downloads", label: "Downloads", title: "Files downloaded from this site (/data) or through Casdoor" },
-  { key: "cdnHits", label: "CDN", title: "bundle.json downloads from jsDelivr, where instances get the free integrations" },
+  { key: "downloads", label: "Downloads", title: "Its files downloaded from this site (/data), mostly by Casdoor backends" },
+  { key: "downloadAddresses", label: "From", title: "The addresses that downloaded them" },
+  { key: "cdnHits", label: "CDN", title: "bundle.json downloads from jsDelivr, where Casdoor gets the free integrations by default" },
 ];
 
 function IntegrationTable({ rows, onPick }: { rows: IntegrationStat[]; onPick: (id: string) => void }) {
-  const [sort, setSort] = useState<SortKey>("activeInstances");
+  const [sort, setSort] = useState<SortKey>("pageViews");
   const [filter, setFilter] = useState("");
   const shown = useMemo(() => {
     const f = filter.trim().toLowerCase();
@@ -344,28 +324,12 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
           </Section>
 
           <Section
-            title="Casdoor instances"
-            note="Reported by Casdoor instances that run a version with Marketplace statistics: what admins opened and installed, and once a day the list of installed integrations."
+            title="Downloads"
+            note="What Casdoor instances and others fetched from /data on this site. Casdoor gets the free catalog from jsDelivr by default, so most of it only shows in jsDelivr's public statistics."
           >
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Tile label="Active instances" value={fmt(stats.instances.active)} hint={`seen in 7 days, ${fmt(stats.instances.total)} ever`} />
-              <Tile label="Reporting installs" value={fmt(stats.instances.reporting)} hint="sent their install list in 7 days" />
-              <Tile label="Marketplace opened" value={fmt(sum(actions, "instance", "browse"))} hint={`by ${fmt(sum(actions, "instance", "browse", "instances"))} instances`} />
-              <Tile label="Integrations viewed" value={fmt(sum(actions, "instance", "view"))} />
-              <Tile
-                label="Installs"
-                value={fmt(sum(actions, "instance", "install"))}
-                hint={`by ${fmt(sum(actions, "instance", "install", "instances"))} instances, ${fmt(sum(actions, "instance", "install", "count", true))} failed`}
-              />
-              <Tile label="Uninstalls" value={fmt(sum(actions, "instance", "uninstall"))} />
-            </div>
-          </Section>
-
-          <Section title="Downloads" note="Files of /data on this site are counted here; jsDelivr's numbers come from its public statistics.">
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
-              <Tile label="Catalog fetches" value={fmt(sum(actions, "data", "index"))} hint={`from ${fmt(sum(actions, "data", "index", "visitors"))} addresses a day, summed`} />
-              <Tile label="File downloads" value={fmt(sum(actions, "data", "download"))} />
-              <Tile label="Through Casdoor" value={fmt(sum(actions, "instance", "download"))} hint="gateway plugins and other files" />
+              <Tile label="Catalog fetches" value={fmt(sum(actions, "data", "index"))} hint={`from ${fmt(sum(actions, "data", "index", "addresses"))} addresses`} />
+              <Tile label="File downloads" value={fmt(sum(actions, "data", "download"))} hint={`from ${fmt(sum(actions, "data", "download", "addresses"))} addresses`} />
               <Tile label={`jsDelivr catalog (${stats.cdn.period})`} value={stats.cdn.error ? "—" : fmt(stats.cdn.indexHits)} hint={stats.cdn.error || undefined} />
               <Tile label={`jsDelivr bundles (${stats.cdn.period})`} value={stats.cdn.error ? "—" : fmt(cdnTotal)} hint={stats.cdn.error ? undefined : `${fmt(cdnNonTheme)} without themes`} />
             </div>
@@ -395,11 +359,8 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
             <Section title="Referrers">
               <NameCountTable rows={stats.referrers} empty="No referrers yet." link={(name) => name} />
             </Section>
-            <Section title="Casdoor versions (active instances)">
-              <NameCountTable rows={stats.instances.versions} empty="No instances yet." />
-            </Section>
-            <Section title="Editions (active instances)">
-              <NameCountTable rows={stats.instances.editions} empty="No instances yet." />
+            <Section title="Paid downloads by license">
+              <NameCountTable rows={stats.licenses} empty="No paid downloads yet." />
             </Section>
           </div>
         </>
@@ -408,17 +369,16 @@ function Overview({ onPick }: { onPick: (id: string) => void }) {
   );
 }
 
-const sources = ["", "site", "instance", "data"];
+const sources = ["", "site", "data"];
 const actionsBySource: Record<string, string[]> = {
-  "": ["", "page_view", "search", "filter", "click", "copy", "signin", "browse", "view", "install", "uninstall", "download", "index"],
+  "": ["", "page_view", "search", "filter", "click", "copy", "signin", "index", "download"],
   site: ["", "page_view", "search", "filter", "click", "copy", "signin"],
-  instance: ["", "browse", "view", "install", "uninstall", "download"],
   data: ["", "index", "download"],
 };
 
-export type EventQuery = { source: string; action: string; integrationId: string; instanceId: string; visitorId: string; includeBots: boolean };
+export type EventQuery = { source: string; action: string; integrationId: string; clientIp: string; visitorId: string; includeBots: boolean };
 
-export const emptyEventQuery: EventQuery = { source: "", action: "", integrationId: "", instanceId: "", visitorId: "", includeBots: false };
+export const emptyEventQuery: EventQuery = { source: "", action: "", integrationId: "", clientIp: "", visitorId: "", includeBots: false };
 
 function describe(e: Event) {
   const parts = [e.integrationId && `${e.integrationId}${e.version ? ` ${e.version}` : ""}`, e.target, e.query && `“${e.query}” (${e.count})`, e.path];
@@ -436,7 +396,7 @@ function Events({ query, setQuery }: { query: EventQuery; setQuery: (q: EventQue
 
   useEffect(() => {
     const params = new URLSearchParams({ p: String(page), pageSize: String(pageSize) });
-    for (const key of ["source", "action", "integrationId", "instanceId", "visitorId"] as const) {
+    for (const key of ["source", "action", "integrationId", "clientIp", "visitorId"] as const) {
       if (query[key]) {
         params.set(key, query[key]);
       }
@@ -475,7 +435,7 @@ function Events({ query, setQuery }: { query: EventQuery; setQuery: (q: EventQue
           ))}
         </select>
         <Input className="h-8 w-44" placeholder="Integration ID" value={query.integrationId} onChange={(e) => update({ integrationId: e.target.value.trim() })} />
-        <Input className="h-8 w-56" placeholder="Instance ID" value={query.instanceId} onChange={(e) => update({ instanceId: e.target.value.trim() })} />
+        <Input className="h-8 w-40" placeholder="IP address" value={query.clientIp} onChange={(e) => update({ clientIp: e.target.value.trim() })} />
         <Input className="h-8 w-40" placeholder="Visitor ID" value={query.visitorId} onChange={(e) => update({ visitorId: e.target.value.trim() })} />
         <label className="flex items-center gap-1.5 text-sm">
           <input type="checkbox" checked={query.includeBots} onChange={(e) => update({ includeBots: e.target.checked })} />
@@ -512,22 +472,11 @@ function Events({ query, setQuery }: { query: EventQuery; setQuery: (q: EventQue
                       <td className="px-2 py-1.5 whitespace-nowrap">
                         <span className="text-muted-foreground">{e.source}/</span>
                         {e.action}
-                        {e.result && <span className="ml-1 text-destructive">failed</span>}
                         {e.isBot && <span className="ml-1 text-muted-foreground">bot</span>}
                       </td>
                       <td className="max-w-md px-2 py-1.5 break-all">{describe(e)}</td>
                       <td className="px-2 py-1.5 whitespace-nowrap">
-                        {e.instanceId ? (
-                          <button
-                            className="hover:underline"
-                            onClick={(ev) => {
-                              ev.stopPropagation();
-                              update({ instanceId: e.instanceId });
-                            }}
-                          >
-                            {e.instanceId.slice(0, 13)}
-                          </button>
-                        ) : e.visitorId ? (
+                        {e.visitorId ? (
                           <button
                             className="hover:underline"
                             onClick={(ev) => {
@@ -540,7 +489,16 @@ function Events({ query, setQuery }: { query: EventQuery; setQuery: (q: EventQue
                         ) : (
                           e.user
                         )}
-                        <span className="ml-1.5 text-muted-foreground">{e.casdoorVersion || e.clientIp}</span>
+                        <button
+                          className="ml-1.5 text-muted-foreground hover:underline"
+                          onClick={(ev) => {
+                            ev.stopPropagation();
+                            update({ clientIp: e.clientIp });
+                          }}
+                        >
+                          {e.clientIp}
+                        </button>
+                        {e.licenseId && <span className="ml-1.5 text-muted-foreground">{e.licenseId}</span>}
                       </td>
                     </tr>
                     {open === e.id && (
@@ -575,67 +533,81 @@ function Events({ query, setQuery }: { query: EventQuery; setQuery: (q: EventQue
   );
 }
 
-function Instances({ onPick }: { onPick: (id: string) => void }) {
-  const [rows, setRows] = useState<Instance[] | null>(null);
-  const [error, setError] = useState("");
+function CatalogClients({ onPick }: { onPick: (clientIp: string) => void }) {
+  const [days, setDays] = useState(30);
+  const [result, setResult] = useState<{ days: number; rows?: CatalogClient[]; error?: string } | null>(null);
 
   useEffect(() => {
-    get<Instance[] | null>("/api/get-instances")
-      .then((r) => setRows(r ?? []))
-      .catch((e: Error) => setError(e.message));
-  }, []);
+    get<CatalogClient[] | null>(`/api/get-catalog-clients?days=${days}`)
+      .then((rows) => setResult({ days, rows: rows ?? [] }))
+      .catch((e: Error) => setResult({ days, error: e.message }));
+  }, [days]);
 
-  if (error) {
-    return <p className="text-sm text-destructive">{error}</p>;
-  }
-  if (!rows) {
-    return <p className="text-sm text-muted-foreground">Loading...</p>;
-  }
-  if (rows.length === 0) {
-    return <p className="text-sm text-muted-foreground">No Casdoor instance has reported yet.</p>;
-  }
+  const rows = result?.days === days ? result.rows : undefined;
+  const error = result?.days === days ? result.error : undefined;
+
   return (
-    <div className="overflow-x-auto rounded-lg border">
-      <table className="w-full text-xs">
-        <thead className="bg-muted/50 text-muted-foreground">
-          <tr>
-            <th className="px-3 py-2 text-left font-medium">Instance</th>
-            <th className="px-2 py-2 text-left font-medium">Casdoor</th>
-            <th className="px-2 py-2 text-left font-medium">Edition</th>
-            <th className="px-2 py-2 text-left font-medium">Address</th>
-            <th className="px-2 py-2 text-left font-medium">First seen</th>
-            <th className="px-2 py-2 text-left font-medium">Last seen</th>
-            <th className="px-2 py-2 text-left font-medium">Installed</th>
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((r) => (
-            <tr key={r.id} className="border-t align-top hover:bg-muted/40">
-              <td className="px-3 py-1.5 font-mono">
-                <button className="hover:underline" onClick={() => onPick(r.id)} title="Show its events">
-                  {r.id}
-                </button>
-              </td>
-              <td className="px-2 py-1.5 whitespace-nowrap">{r.casdoorVersion}</td>
-              <td className="px-2 py-1.5 whitespace-nowrap">
-                {r.edition}
-                {r.licenseId && <span className="ml-1 text-muted-foreground">{r.licenseId}</span>}
-              </td>
-              <td className="px-2 py-1.5 whitespace-nowrap">{r.clientIp}</td>
-              <td className="px-2 py-1.5 whitespace-nowrap tabular-nums">{r.firstSeen}</td>
-              <td className="px-2 py-1.5 whitespace-nowrap tabular-nums">{r.lastSeen}</td>
-              <td className="px-2 py-1.5">{r.installs}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+    <div className="flex flex-col gap-4">
+      <div className="flex flex-wrap items-center gap-2">
+        {[7, 30, 90].map((d) => (
+          <Button key={d} size="sm" variant={days === d ? "default" : "outline"} onClick={() => setDays(d)}>
+            Last {d} days
+          </Button>
+        ))}
+        <span className="text-xs text-muted-foreground">
+          Addresses that fetched the catalog or files from /data on this site, mostly Casdoor backends (Go-http-client).
+        </span>
+      </div>
+      {error && <p className="text-sm text-destructive">{error}</p>}
+      {!rows && !error && <p className="text-sm text-muted-foreground">Loading...</p>}
+      {rows && rows.length === 0 && <p className="text-sm text-muted-foreground">Nothing fetched from /data yet.</p>}
+      {rows && rows.length > 0 && (
+        <div className="overflow-x-auto rounded-lg border">
+          <table className="w-full text-xs">
+            <thead className="bg-muted/50 text-muted-foreground">
+              <tr>
+                <th className="px-3 py-2 text-left font-medium">Address</th>
+                <th className="px-2 py-2 text-left font-medium">Client</th>
+                <th className="px-2 py-2 text-right font-medium">Catalog fetches</th>
+                <th className="px-2 py-2 text-right font-medium">Downloads</th>
+                <th className="px-2 py-2 text-right font-medium">Days</th>
+                <th className="px-2 py-2 text-left font-medium">First seen</th>
+                <th className="px-2 py-2 text-left font-medium">Last seen</th>
+                <th className="px-2 py-2 text-left font-medium">License</th>
+                <th className="px-2 py-2 text-left font-medium">Site</th>
+              </tr>
+            </thead>
+            <tbody>
+              {rows.map((r) => (
+                <tr key={r.clientIp} className="border-t hover:bg-muted/40">
+                  <td className="px-3 py-1.5 font-mono">
+                    <button className="hover:underline" onClick={() => onPick(r.clientIp)} title="Show its events">
+                      {r.clientIp}
+                    </button>
+                  </td>
+                  <td className="max-w-48 truncate px-2 py-1.5" title={r.userAgent}>
+                    {r.userAgent}
+                  </td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{fmt(r.fetches)}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{r.downloads ? fmt(r.downloads) : ""}</td>
+                  <td className="px-2 py-1.5 text-right tabular-nums">{r.days}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap tabular-nums">{r.firstSeen}</td>
+                  <td className="px-2 py-1.5 whitespace-nowrap tabular-nums">{r.lastSeen}</td>
+                  <td className="px-2 py-1.5">{r.licenseId}</td>
+                  <td className="px-2 py-1.5">{r.hosts}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
-type Tab = "overview" | "events" | "instances";
+type Tab = "overview" | "events" | "clients";
 
-// The statistics of the admin console: totals and daily numbers, every event, and the Casdoor instances that reported
+// The statistics of the admin console: totals and daily numbers, every event, and the addresses that fetched /data
 export function AdminStats() {
   const [tab, setTab] = useState<Tab>("overview");
   const [query, setQuery] = useState<EventQuery>(emptyEventQuery);
@@ -644,8 +616,8 @@ export function AdminStats() {
     setQuery({ ...emptyEventQuery, integrationId });
     setTab("events");
   };
-  const pickInstance = (instanceId: string) => {
-    setQuery({ ...emptyEventQuery, instanceId });
+  const pickClient = (clientIp: string) => {
+    setQuery({ ...emptyEventQuery, clientIp });
     setTab("events");
   };
 
@@ -656,7 +628,7 @@ export function AdminStats() {
           [
             ["overview", "Overview"],
             ["events", "Events"],
-            ["instances", "Instances"],
+            ["clients", "Catalog clients"],
           ] as const
         ).map(([key, label]) => (
           <button
@@ -670,7 +642,7 @@ export function AdminStats() {
       </div>
       {tab === "overview" && <Overview onPick={pickIntegration} />}
       {tab === "events" && <Events query={query} setQuery={setQuery} />}
-      {tab === "instances" && <Instances onPick={pickInstance} />}
+      {tab === "clients" && <CatalogClients onPick={pickClient} />}
     </div>
   );
 }

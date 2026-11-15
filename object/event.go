@@ -11,18 +11,19 @@ import (
 	"github.com/beego/beego/logs"
 )
 
-// Event is one thing someone did with the Marketplace: a page they opened or a link they clicked on the site, a file
-// a Casdoor instance or anyone else downloaded from /data, or an integration a Casdoor instance installed or uninstalled.
+// Event is one thing someone did with the Marketplace: a page they opened or a link they clicked on the site, or a file
+// a Casdoor instance or anyone else downloaded from /data. Only what reaches this site is recorded: Casdoor does not
+// report anything.
 type Event struct {
 	Id          int64  `xorm:"pk autoincr" json:"id"`
 	CreatedTime string `xorm:"varchar(100) index" json:"createdTime"`
-	// site (the pages), data (the files under /data) or instance (reported by a Casdoor instance)
+	// site (the pages) or data (the files under /data)
 	Source          string `xorm:"varchar(20) index" json:"source"`
 	Action          string `xorm:"varchar(50) index" json:"action"`
 	IntegrationId   string `xorm:"varchar(100) index" json:"integrationId"`
 	Version         string `xorm:"varchar(50)" json:"version"`
 	IntegrationType string `xorm:"varchar(20)" json:"integrationType"`
-	// what was clicked, the file downloaded, or the kind of an integration's installation
+	// what was clicked or the file downloaded
 	Target   string `xorm:"varchar(200)" json:"target"`
 	Query    string `xorm:"varchar(200)" json:"query"`
 	Count    int    `json:"count"`
@@ -31,34 +32,26 @@ type Event struct {
 	Lang     string `xorm:"varchar(20)" json:"lang"`
 	Host     string `xorm:"varchar(100)" json:"host"`
 	// a hash of the IP address, the browser and the day, so a visitor is counted once a day without a cookie
-	VisitorId      string `xorm:"varchar(50) index" json:"visitorId"`
-	User           string `xorm:"varchar(200)" json:"user"`
-	InstanceId     string `xorm:"varchar(100) index" json:"instanceId"`
-	CasdoorVersion string `xorm:"varchar(100)" json:"casdoorVersion"`
-	Edition        string `xorm:"varchar(20)" json:"edition"`
-	LicenseId      string `xorm:"varchar(100)" json:"licenseId"`
-	// empty when it worked, else error, with the message
-	Result    string `xorm:"varchar(20)" json:"result"`
-	Message   string `xorm:"varchar(500)" json:"message"`
+	VisitorId string `xorm:"varchar(50) index" json:"visitorId"`
+	User      string `xorm:"varchar(200)" json:"user"`
+	// the license a Casdoor sent to get a paid integration
+	Edition   string `xorm:"varchar(20)" json:"edition"`
+	LicenseId string `xorm:"varchar(100)" json:"licenseId"`
 	ClientIp  string `xorm:"varchar(100)" json:"clientIp"`
 	UserAgent string `xorm:"varchar(500)" json:"userAgent"`
 	IsBot     bool   `xorm:"index" json:"isBot"`
 }
 
 const (
-	EventSourceSite     = "site"
-	EventSourceData     = "data"
-	EventSourceInstance = "instance"
+	EventSourceSite = "site"
+	EventSourceData = "data"
 )
 
-// the actions the pages and Casdoor instances may report; the others are recorded by the backend itself
-var reportableActions = map[string]map[string]bool{
-	EventSourceSite:     {"search": true, "click": true, "copy": true, "filter": true},
-	EventSourceInstance: {"browse": true, "view": true, "install": true, "uninstall": true, "download": true},
-}
+// the actions the pages report; page views and downloads are recorded by the backend itself
+var reportableActions = map[string]bool{"search": true, "click": true, "copy": true, "filter": true}
 
-func IsReportableAction(source string, action string) bool {
-	return reportableActions[source][action]
+func IsReportableAction(action string) bool {
+	return reportableActions[action]
 }
 
 // The times are in China time on every node, so the days of the statistics are the same wherever an event was recorded
@@ -147,7 +140,7 @@ func (event *Event) normalize() {
 	if event.CreatedTime == "" {
 		event.CreatedTime = eventTime(now)
 	}
-	if event.VisitorId == "" && event.ClientIp != "" && event.Source != EventSourceInstance {
+	if event.VisitorId == "" && event.ClientIp != "" {
 		event.VisitorId = getVisitorId(event.ClientIp, event.UserAgent, now)
 	}
 	if event.Source == EventSourceSite {
@@ -163,12 +156,8 @@ func (event *Event) normalize() {
 	event.Lang = truncate(event.Lang, 20)
 	event.Host = truncate(event.Host, 100)
 	event.User = truncate(event.User, 200)
-	event.InstanceId = truncate(event.InstanceId, 100)
-	event.CasdoorVersion = truncate(event.CasdoorVersion, 100)
 	event.Edition = truncate(event.Edition, 20)
 	event.LicenseId = truncate(event.LicenseId, 100)
-	event.Result = truncate(event.Result, 20)
-	event.Message = truncate(event.Message, 500)
 	event.ClientIp = truncate(event.ClientIp, 100)
 	event.UserAgent = truncate(event.UserAgent, 500)
 }
@@ -206,7 +195,6 @@ func writeEvents() {
 		if err != nil {
 			logs.Error("writeEvents(): %v", err)
 		}
-		applyInstanceEvents(batch)
 		batch = []*Event{}
 	}
 
