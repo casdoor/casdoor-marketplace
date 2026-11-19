@@ -30,8 +30,8 @@ func mustDecodeBase64(s string) []byte {
 	return res
 }
 
-// ParseLicense verifies a license of the form "<base64url payload>.<base64url Ed25519 signature of the payload part>".
-// An expired license still covers the versions published before it expired
+// ParseLicense verifies a license of the form "<base64url payload>.<base64url Ed25519 signature of the payload part>"
+// and that it hasn't expired: a license is for its term, an expired one gets no paid integration
 func ParseLicense(text string) (*License, error) {
 	parts := strings.Split(strings.TrimSpace(text), ".")
 	if len(parts) != 2 {
@@ -58,36 +58,15 @@ func ParseLicense(text string) (*License, error) {
 		return nil, fmt.Errorf("the license has an unknown edition: %s", license.Edition)
 	}
 	if license.ExpireTime != "" {
-		if _, err = time.Parse(time.RFC3339, license.ExpireTime); err != nil {
+		expireTime, err := time.Parse(time.RFC3339, license.ExpireTime)
+		if err != nil {
 			return nil, fmt.Errorf("the license has an invalid expire time")
+		}
+		if time.Now().After(expireTime) {
+			return nil, fmt.Errorf("the license expired at %s, renew it to get the paid integrations again", license.ExpireTime)
 		}
 	}
 	return license, nil
-}
-
-func (license *License) IsExpired() bool {
-	if license == nil || license.ExpireTime == "" {
-		return false
-	}
-	expireTime, err := time.Parse(time.RFC3339, license.ExpireTime)
-	return err != nil || time.Now().After(expireTime)
-}
-
-// AllowsVersion tells whether the license is good for a version of an integration that needs the edition: after
-// the license expired, only for the versions published before it expired
-func (license *License) AllowsVersion(edition string, publishedAt string) bool {
-	if !license.Allows(edition) {
-		return false
-	}
-	if !license.IsExpired() {
-		return true
-	}
-	expireTime, err := time.Parse(time.RFC3339, license.ExpireTime)
-	if err != nil {
-		return false
-	}
-	t, err := time.Parse(time.RFC3339, publishedAt)
-	return err == nil && !t.After(expireTime)
 }
 
 // Allows tells whether the license is good for an integration that needs the edition
