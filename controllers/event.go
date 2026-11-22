@@ -51,6 +51,14 @@ func (c *ApiController) AddEvent() {
 
 	var req EventRequest
 	err := json.Unmarshal(c.Ctx.Input.RequestBody, &req)
+	// the page tells it has run in a browser, which makes the visitor a person; it is no event of its own
+	if err == nil && req.Action == "ping" {
+		if !object.IsBotUserAgent(c.Ctx.Input.UserAgent()) {
+			object.ConfirmVisitor(GetVisitorId(c.Ctx))
+		}
+		c.ResponseOk(nil)
+		return
+	}
 	if err != nil || !object.IsReportableAction(req.Action) {
 		c.ResponseError("Invalid event")
 		return
@@ -82,6 +90,9 @@ func (c *ApiController) AddEvent() {
 	}
 
 	object.AddEvent(event)
+	if !event.IsBot {
+		object.ConfirmVisitor(event.VisitorId)
+	}
 	c.ResponseOk(nil)
 }
 

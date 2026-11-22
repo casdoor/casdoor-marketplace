@@ -2,7 +2,8 @@
 // Page views are counted by the backend itself.
 
 export type TrackEvent = {
-  action: "click" | "copy" | "search" | "filter";
+  // "ping" only tells the backend the page has run in a browser, so the page views count as a person's
+  action: "click" | "copy" | "search" | "filter" | "ping";
   target?: string;
   integrationId?: string;
   query?: string;

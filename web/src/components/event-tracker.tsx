@@ -1,11 +1,19 @@
 "use client";
 
 import { useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { track } from "@/lib/track";
 
 // Reports clicks on the elements marked with data-track (and data-track-id for the integration), links to other
-// sites, and text copied from the setup steps of an integration.
+// sites, and text copied from the setup steps of an integration, and pings on every page so the backend counts its
+// page views as a person's (crawlers and scanners don't run the script).
 export function EventTracker() {
+  const pathname = usePathname();
+
+  useEffect(() => {
+    track({ action: "ping" });
+  }, [pathname]);
+
   useEffect(() => {
     const onClick = (e: MouseEvent) => {
       const el = (e.target as Element | null)?.closest?.("[data-track], a[href]");

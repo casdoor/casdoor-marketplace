@@ -6,6 +6,7 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/beego/beego/logs"
@@ -96,6 +97,7 @@ var botPatterns = []string{
 	"bot", "spider", "crawl", "slurp", "curl", "wget", "python", "go-http-client", "java/", "httpclient", "headless",
 	"lighthouse", "monitor", "uptime", "preview", "facebookexternalhit", "scrapy", "axios", "node-fetch", "okhttp",
 	"libwww", "phantomjs", "feedfetcher", "dataprovider", "embedly", "validator", "check_http", "zgrab", "masscan",
+	"casdog", "productfinder", "scanner", "fetcher",
 }
 
 // IsBotUserAgent tells crawlers, monitors and scripts from browsers
@@ -109,8 +111,109 @@ func IsBotUserAgent(userAgent string) bool {
 			return true
 		}
 	}
-	return false
+	// "Mozilla/5.0 (compatible; ...)" is how crawlers and monitors name themselves; of the browsers only old IE did
+	return strings.Contains(ua, "(compatible;") && !strings.Contains(ua, "msie")
 }
+
+// Many scanners and scrapers fetch the pages with the name of a browser but never run their script, so a page view
+// counts as a person's only once the visitor's browser has reported from the page (ConfirmVisitor); the views before
+// that are then counted too. Until then the view is kept as a bot's.
+var confirmedVisitors = struct {
+	sync.Mutex
+	ids map[string]bool
+}{ids: map[string]bool{}}
+
+func isConfirmedVisitor(visitorId string) bool {
+	confirmedVisitors.Lock()
+	defer confirmedVisitors.Unlock()
+	return confirmedVisitors.ids[visitorId]
+}
+
+func setConfirmedVisitors(visitorIds []string) {
+	confirmedVisitors.Lock()
+	defer confirmedVisitors.Unlock()
+	if len(confirmedVisitors.ids) > 100000 {
+		confirmedVisitors.ids = map[string]bool{}
+	}
+	for _, id := range visitorIds {
+		confirmedVisitors.ids[id] = true
+	}
+}
+
+const confirmAction = "confirm"
+
+// ConfirmVisitor marks a visitor whose browser has run the page's script as a person. It goes through the same queue
+// as the events, so the page views recorded before it are already written when it counts them.
+func ConfirmVisitor(visitorId string) {
+	if engine == nil || visitorId == "" {
+		return
+	}
+	setConfirmedVisitors([]string{visitorId})
+	select {
+	case eventChan <- &Event{Action: confirmAction, VisitorId: visitorId}:
+	default:
+	}
+}
+
+func confirmVisitorViews(visitorIds []string) {
+	if len(visitorIds) == 0 {
+		return
+	}
+	// a person usually reports within seconds of the page; a day covers a page left open in the background
+	since := eventTime(time.Now().Add(-24 * time.Hour))
+	args := []interface{}{since}
+	for _, id := range visitorIds {
+		args = append(args, id)
+	}
+	_, err := engine.Exec(append([]interface{}{`update event set is_bot = 0 where source = 'site' and action = 'page_view'
+		and is_bot = 1 and created_time >= ? and visitor_id in (?` + strings.Repeat(", ?", len(visitorIds)-1) + `)`}, args...)...)
+	if err != nil {
+		logs.Error("confirmVisitorViews(): %v", err)
+	}
+}
+
+// markConfirmedViews counts the page views in a batch as a person's when their visitor was confirmed before, also by
+// the other node, which shares the database
+func markConfirmedViews(batch []*Event) {
+	unknown := []string{}
+	for _, event := range batch {
+		if event.Action != "page_view" || !event.IsBot || !visitorIdRegex.MatchString(event.VisitorId) || IsBotUserAgent(event.UserAgent) {
+			continue
+		}
+		if isConfirmedVisitor(event.VisitorId) {
+			event.IsBot = false
+		} else {
+			unknown = append(unknown, event.VisitorId)
+		}
+	}
+	if len(unknown) == 0 {
+		return
+	}
+
+	args := []interface{}{}
+	for _, id := range unknown {
+		args = append(args, id)
+	}
+	rows, err := engine.QueryString(append([]interface{}{`select distinct visitor_id from event where source = 'site' and is_bot = 0
+		and visitor_id in (?` + strings.Repeat(", ?", len(unknown)-1) + `)`}, args...)...)
+	if err != nil {
+		logs.Error("markConfirmedViews(): %v", err)
+		return
+	}
+	confirmed := []string{}
+	for _, row := range rows {
+		confirmed = append(confirmed, row["visitor_id"])
+	}
+	setConfirmedVisitors(confirmed)
+	for _, event := range batch {
+		if event.Action == "page_view" && event.IsBot && isConfirmedVisitor(event.VisitorId) && !IsBotUserAgent(event.UserAgent) {
+			event.IsBot = false
+		}
+	}
+}
+
+// the cookie of the pages; the hashes for crawlers and /data are as long, but crawlers are never confirmed
+var visitorIdRegex = regexp.MustCompile(`^[0-9a-f]{16}$`)
 
 func getVisitorId(clientIp string, userAgent string, t time.Time) string {
 	sum := sha256.Sum256([]byte(clientIp + "|" + userAgent + "|" + t.In(eventZone).Format("2006-01-02")))
@@ -146,7 +249,7 @@ func (event *Event) normalize() {
 		event.VisitorId = getVisitorId(event.ClientIp, event.UserAgent, now)
 	}
 	if event.Source == EventSourceSite {
-		event.IsBot = IsBotUserAgent(event.UserAgent)
+		event.IsBot = IsBotUserAgent(event.UserAgent) || (event.Action == "page_view" && !isConfirmedVisitor(event.VisitorId))
 	}
 	event.IntegrationId = truncate(event.IntegrationId, 100)
 	event.Version = truncate(event.Version, 50)
@@ -193,6 +296,7 @@ func writeEvents() {
 		if len(batch) == 0 || engine == nil {
 			return
 		}
+		markConfirmedViews(batch)
 		_, err := engine.Insert(&batch)
 		if err != nil {
 			logs.Error("writeEvents(): %v", err)
@@ -203,6 +307,11 @@ func writeEvents() {
 	for {
 		select {
 		case event := <-eventChan:
+			if event.Action == confirmAction {
+				flush()
+				confirmVisitorViews([]string{event.VisitorId})
+				continue
+			}
 			batch = append(batch, event)
 			if len(batch) >= 200 {
 				flush()
