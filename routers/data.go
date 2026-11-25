@@ -293,6 +293,9 @@ func serveVersionMetaStep(ctx *context.Context, id string, version string, step 
 			target = stage
 		}
 		recordDataEvent(ctx, action, id, version, target, license)
+		if step == "failed" {
+			object.AlertInstallFailed(id, version, stage, license, ctx.Input.IP())
+		}
 	}
 	writeData(ctx, "meta.json", data, "no-store")
 }

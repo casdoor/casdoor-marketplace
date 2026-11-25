@@ -11,7 +11,7 @@ type User = { owner: string; name: string; displayName: string; avatar: string; 
 
 type Account = { user: User | null; hasCasdoor: boolean; hasDatabase: boolean };
 
-type Settings = { googleAnalyticsId: string; baiduTongjiId: string; casdeskWidgets: string };
+type Settings = { googleAnalyticsId: string; baiduTongjiId: string; casdeskWidgets: string; alertWebhookUrl: string };
 
 type Response<T> = { status: "ok" | "error"; msg: string; data: T };
 
@@ -43,6 +43,12 @@ const fields: { key: keyof Settings; label: string; placeholder: string; help: s
     placeholder: "marketplace.example.com https://chat.example.com example",
     help: "One line per domain: the domain of the pages (or * for any other), the Casdesk server and the Casdesk site.",
     multiline: true,
+  },
+  {
+    key: "alertWebhookUrl",
+    label: "Alert webhook",
+    placeholder: "https://alerts.example.com/hook",
+    help: "Gets a POST of {\"msg\": \"...\"} when a licensed Casdoor fails to install an integration, once a day for each license, integration and stage.",
   },
 ];
 

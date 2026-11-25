@@ -26,6 +26,8 @@ type SiteSettings struct {
 	BaiduTongjiId     string `json:"baiduTongjiId"`
 	// CasdeskWidgets has one line per domain: "<page host or *> <Casdesk server URL> <Casdesk site>".
 	CasdeskWidgets string `json:"casdeskWidgets"`
+	// AlertWebhookUrl gets a POST of {"msg": "..."} when an install by a licensed Casdoor fails, empty for none.
+	AlertWebhookUrl string `json:"alertWebhookUrl"`
 }
 
 type casdeskWidget struct {
@@ -114,6 +116,8 @@ func GetSiteSettings() (*SiteSettings, error) {
 			settings.BaiduTongjiId = row.Value
 		case "casdeskWidgets":
 			settings.CasdeskWidgets = row.Value
+		case "alertWebhookUrl":
+			settings.AlertWebhookUrl = row.Value
 		}
 	}
 	return settings, nil
@@ -136,12 +140,19 @@ func UpdateSiteSettings(settings *SiteSettings) error {
 	if err != nil {
 		return err
 	}
+	if settings.AlertWebhookUrl != "" {
+		u, err := url.Parse(settings.AlertWebhookUrl)
+		if err != nil || u.Scheme != "https" || u.Host == "" || len(settings.AlertWebhookUrl) > 1000 {
+			return fmt.Errorf("an alert webhook URL looks like https://alerts.example.com/hook")
+		}
+	}
 
 	now := time.Now().Format(time.RFC3339)
 	rows := []*Setting{
 		{Name: "googleAnalyticsId", Value: settings.GoogleAnalyticsId, UpdatedTime: now},
 		{Name: "baiduTongjiId", Value: settings.BaiduTongjiId, UpdatedTime: now},
 		{Name: "casdeskWidgets", Value: settings.CasdeskWidgets, UpdatedTime: now},
+		{Name: "alertWebhookUrl", Value: settings.AlertWebhookUrl, UpdatedTime: now},
 	}
 	for _, row := range rows {
 		affected, err := engine.ID(row.Name).AllCols().Update(row)

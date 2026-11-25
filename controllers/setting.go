@@ -35,6 +35,7 @@ func (c *ApiController) UpdateSettings() {
 	}
 	settings.GoogleAnalyticsId = strings.TrimSpace(settings.GoogleAnalyticsId)
 	settings.BaiduTongjiId = strings.TrimSpace(settings.BaiduTongjiId)
+	settings.AlertWebhookUrl = strings.TrimSpace(settings.AlertWebhookUrl)
 	settings.CasdeskWidgets = strings.TrimSpace(strings.ReplaceAll(settings.CasdeskWidgets, "\r\n", "\n"))
 
 	err = object.UpdateSiteSettings(&settings)
