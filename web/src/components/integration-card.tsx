@@ -37,20 +37,24 @@ export async function IntegrationCard({ integration, lang }: { integration: Inte
         )}
       </div>
       <div className="flex flex-1 flex-col gap-2 p-5">
-        <div className="flex items-center justify-between gap-2">
-          <h3 className="flex min-w-0 items-center gap-1 font-semibold">
-            <span className="truncate">{localized(integration.name, lang)}</span>
-            {integration.verified && <BadgeCheck className="size-4 shrink-0 text-primary" aria-label={m.integration.verifiedShort} />}
+        <div className="flex flex-col gap-1.5">
+          <h3 className="line-clamp-2 font-semibold leading-snug" title={localized(integration.name, lang)}>
+            {localized(integration.name, lang)}
+            {integration.verified && (
+              <BadgeCheck className="ml-1 inline-block size-4 shrink-0 align-[-3px] text-primary" aria-label={m.integration.verifiedShort} />
+            )}
+          </h3>
+          <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
+            <span className="flex items-center gap-1">
+              <TypeIcon type={getCollection(integration.type)?.type ?? integration.type} className="size-3.5" />
+              {typeLabel}
+            </span>
             {integration.edition && (
-              <span className="shrink-0 rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
+              <span className="rounded-full bg-amber-500/10 px-1.5 py-0.5 text-[11px] font-medium text-amber-700 dark:text-amber-400">
                 {m.integration.edition(integration.edition)}
               </span>
             )}
-          </h3>
-          <span className="flex shrink-0 items-center gap-1 text-xs text-muted-foreground">
-            <TypeIcon type={getCollection(integration.type)?.type ?? integration.type} className="size-3.5" />
-            {typeLabel}
-          </span>
+          </div>
         </div>
         <p className="line-clamp-2 text-sm leading-6 text-muted-foreground">{localized(integration.description, lang)}</p>
         <div className="mt-auto flex flex-wrap gap-1.5 pt-2">
